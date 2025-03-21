@@ -4,6 +4,7 @@ import (
 	"cine_conecta_backend/config"
 	"cine_conecta_backend/factories"
 	"cine_conecta_backend/models"
+	"cine_conecta_backend/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,9 +27,14 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Crear el usuario con el factory
 	user := factories.NewUser(input.Name, input.Email, string(hashedPassword))
 
-	config.DB.Create(&user)
+	// Guardar el usuario con el servicio
+	if err := services.SaveUser(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo guardar el usuario"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Usuario registrado correctamente"})
 }
