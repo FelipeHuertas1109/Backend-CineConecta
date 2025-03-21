@@ -1,6 +1,6 @@
 module cine_conecta_backend
 
-go 1.24.0
+go 1.20
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
