@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -11,12 +13,26 @@ import (
 var DB *gorm.DB
 
 func ConnectDB() {
+	// Cargar .env en desarrollo (ignorar si ya está en Vercel)
+	if os.Getenv("VERCEL") == "" { // Vercel define esta variable automáticamente
+		err := godotenv.Load()
+		if err != nil {
+			log.Println("⚠️  Advertencia: No se pudo cargar el archivo .env, usando variables del sistema")
+		}
+	}
+
+	// Leer DATABASE_URL de entorno o del .env
 	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		panic("❌ Error: La variable DATABASE_URL no está configurada")
+	}
+
+	// Conectar a la base de datos PostgreSQL
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic(fmt.Sprintf("Error conectando a PostgreSQL: %v", err))
+		panic(fmt.Sprintf("❌ Error conectando a la base de datos: %v", err))
 	}
-	// Migrar tus modelos aquí, por ejemplo:
-	// db.AutoMigrate(&models.User{}, &models.Movie{})
+
+	fmt.Println("✅ Conectado a PostgreSQL correctamente")
 	DB = db
 }
