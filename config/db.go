@@ -1,8 +1,8 @@
 package config
 
 import (
-	"cine_conecta_backend/models"
 	"fmt"
+	"os"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -11,15 +11,12 @@ import (
 var DB *gorm.DB
 
 func ConnectDB() {
-	dsn := "postgres://postgres:lolandia1@db.zufjxpgxyhphoygtxqit.supabase.co:5432/postgres"
+	dsn := os.Getenv("DATABASE_URL")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(fmt.Sprintf("Error conectando a PostgreSQL: %v", err))
 	}
-
-	// Migrar modelos
-	db.AutoMigrate(&models.User{})
-
+	// Migrar tus modelos aquí, por ejemplo:
+	// db.AutoMigrate(&models.User{}, &models.Movie{})
 	DB = db
-	fmt.Println("✅ Conectado a PostgreSQL exitosamente")
 }
