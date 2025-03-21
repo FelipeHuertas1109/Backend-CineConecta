@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"cine_conecta_backend/config"
+	"cine_conecta_backend/factories"
 	"cine_conecta_backend/models"
 	"net/http"
 
@@ -25,11 +26,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
-		Name:     input.Name,
-		Email:    input.Email,
-		Password: string(hashedPassword),
-	}
+	user := factories.NewUser(input.Name, input.Email, string(hashedPassword))
 
 	config.DB.Create(&user)
 
