@@ -62,3 +62,20 @@ func Login(c *gin.Context) {
 	// Inicio de sesión exitoso
 	c.JSON(http.StatusOK, gin.H{"message": "Sesión iniciada correctamente", "user": user})
 }
+
+func GetAllUsers(c *gin.Context) {
+	var users []models.User
+
+	result := config.DB.Find(&users)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudieron obtener los usuarios"})
+		return
+	}
+
+	// Evitar devolver las contraseñas hasheadas
+	for i := range users {
+		users[i].Password = ""
+	}
+
+	c.JSON(http.StatusOK, users)
+}

@@ -11,5 +11,6 @@ func RegisterRoutes(r *gin.Engine) {
 	{
 		api.POST("/register", controllers.Register)
 		api.POST("/login", controllers.Login)
+		api.GET("/users", controllers.GetAllUsers)
 	}
 }
