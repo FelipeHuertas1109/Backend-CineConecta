@@ -39,7 +39,7 @@ func Register(c *gin.Context) {
 
 	// Guardar el usuario con el servicio
 	if err := services.SaveUser(user); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "El usuario ya existe")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Correo ya utilizado en otra cuenta")
 		return
 	}
 
