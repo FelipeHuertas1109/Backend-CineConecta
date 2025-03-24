@@ -5,6 +5,7 @@ import (
 	"cine_conecta_backend/factories"
 	"cine_conecta_backend/models"
 	"cine_conecta_backend/services"
+	"cine_conecta_backend/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,8 +28,15 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Asignar rol por defecto. Puedes personalizarlo o hacerlo desde la solicitud.
+	role := "user"
+
+	if input.Email == "fhuertas@unillanos.edu.co" {
+		role = "admin"
+	}
+
 	// Crear el usuario con el factory
-	user := factories.NewUser(input.Name, input.Email, string(hashedPassword))
+	user := factories.NewUser(input.Name, input.Email, string(hashedPassword), role)
 
 	// Guardar el usuario con el servicio
 	if err := services.SaveUser(user); err != nil {
@@ -49,7 +57,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Buscar por email
+	// Buscar el usuario por email
 	result := config.DB.Where("email = ?", input.Email).First(&user)
 	if result.Error != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email o contraseña incorrectos"})
@@ -62,8 +70,17 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Inicio de sesión exitoso
-	c.JSON(http.StatusOK, gin.H{"message": "Sesión iniciada correctamente", "user": user})
+	// Generar token JWT
+	token, err := utils.GenerateJWT(user.Name, user.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo generar el token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Sesión iniciada correctamente",
+		"token":   token,
+	})
 }
 
 func GetAllUsers(c *gin.Context) {

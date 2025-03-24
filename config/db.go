@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cine_conecta_backend/models"
 	"fmt"
 	"log"
 	"os"
@@ -34,5 +35,6 @@ func ConnectDB() {
 	}
 
 	fmt.Println("✅ Conectado a PostgreSQL correctamente")
+	db.AutoMigrate(&models.User{})
 	DB = db
 }
