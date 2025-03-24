@@ -59,7 +59,7 @@ func Login(c *gin.Context) {
 	// Buscar el usuario por email
 	result := config.DB.Where("email = ?", input.Email).First(&user)
 	if result.Error != nil {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Email o contraseña incorrectos")
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Email y/o contraseña incorrectos")
 		return
 	}
 
