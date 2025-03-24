@@ -99,3 +99,8 @@ func GetAllUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, users)
 }
+
+func DeleteAllUsers(c *gin.Context) {
+	config.DB.Exec("DELETE FROM users")
+	c.JSON(http.StatusOK, gin.H{"message": "Todos los usuarios han sido eliminados"})
+}
