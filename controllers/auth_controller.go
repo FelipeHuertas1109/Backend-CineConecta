@@ -17,20 +17,19 @@ func Register(c *gin.Context) {
 	var input models.User
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
 		return
 	}
 
 	// Encriptar la contraseña
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al encriptar la contraseña"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al encriptar la contraseña")
 		return
 	}
 
-	// Asignar rol por defecto. Puedes personalizarlo o hacerlo desde la solicitud.
+	// Asignar rol por defecto o como admin
 	role := "user"
-
 	if input.Email == "fhuertas@unillanos.edu.co" {
 		role = "admin"
 	}
@@ -40,7 +39,7 @@ func Register(c *gin.Context) {
 
 	// Guardar el usuario con el servicio
 	if err := services.SaveUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo guardar el usuario"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo guardar el usuario")
 		return
 	}
 
@@ -53,27 +52,27 @@ func Login(c *gin.Context) {
 	var user models.User
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
 		return
 	}
 
 	// Buscar el usuario por email
 	result := config.DB.Where("email = ?", input.Email).First(&user)
 	if result.Error != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email o contraseña incorrectos"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Email o contraseña incorrectos")
 		return
 	}
 
 	// Verificar la contraseña
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email o contraseña incorrectos"})
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Email y/o contraseña incorrectos")
 		return
 	}
 
 	// Generar token JWT
 	token, err := utils.GenerateJWT(user.Name, user.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo generar el token"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo generar el token")
 		return
 	}
 
@@ -83,16 +82,17 @@ func Login(c *gin.Context) {
 	})
 }
 
+// Obtener todos los usuarios (solo admin)
 func GetAllUsers(c *gin.Context) {
 	var users []models.User
 
 	result := config.DB.Find(&users)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudieron obtener los usuarios"})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudieron obtener los usuarios")
 		return
 	}
 
-	// Evitar devolver las contraseñas hasheadas
+	// Ocultar contraseñas
 	for i := range users {
 		users[i].Password = ""
 	}
