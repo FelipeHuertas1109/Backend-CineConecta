@@ -1,8 +1,8 @@
 package main
 
 import (
+	"cine_conecta_backend/auth/routes"
 	"cine_conecta_backend/config"
-	"cine_conecta_backend/routes"
 
 	"github.com/gin-gonic/gin"
 )

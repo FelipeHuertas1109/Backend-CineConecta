@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"cine_conecta_backend/controllers"
-	"cine_conecta_backend/middlewares"
+	"cine_conecta_backend/auth/controllers"
+	"cine_conecta_backend/auth/middlewares"
 
 	"github.com/gin-gonic/gin"
 )

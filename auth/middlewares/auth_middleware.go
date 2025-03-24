@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"cine_conecta_backend/utils"
+	"cine_conecta_backend/auth/utils"
 	"net/http"
 	"strings"
 

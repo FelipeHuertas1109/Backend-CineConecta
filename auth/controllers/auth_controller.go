@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"cine_conecta_backend/auth/factories"
+	"cine_conecta_backend/auth/models"
+	"cine_conecta_backend/auth/services"
+	"cine_conecta_backend/auth/utils"
 	"cine_conecta_backend/config"
-	"cine_conecta_backend/factories"
-	"cine_conecta_backend/models"
-	"cine_conecta_backend/services"
-	"cine_conecta_backend/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

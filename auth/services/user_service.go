@@ -1,8 +1,8 @@
 package services
 
 import (
+	"cine_conecta_backend/auth/models"
 	"cine_conecta_backend/config"
-	"cine_conecta_backend/models"
 )
 
 func SaveUser(user *models.User) error {

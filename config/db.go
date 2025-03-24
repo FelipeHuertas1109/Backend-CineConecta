@@ -1,7 +1,7 @@
 package config
 
 import (
-	"cine_conecta_backend/models"
+	"cine_conecta_backend/auth/models"
 	"fmt"
 	"log"
 	"os"
