@@ -101,6 +101,13 @@ func GetAllUsers(c *gin.Context) {
 }
 
 func DeleteAllUsers(c *gin.Context) {
-	config.DB.Exec("DELETE FROM users")
-	c.JSON(http.StatusOK, gin.H{"message": "Todos los usuarios han sido eliminados"})
+	result := config.DB.Exec("DELETE FROM users WHERE role != ?", "admin")
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "No se pudieron eliminar los usuarios",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Todos los usuarios no admin han sido eliminados"})
 }
