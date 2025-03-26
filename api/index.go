@@ -22,7 +22,7 @@ func initRouter() {
 
 	// 🔐 Middleware CORS para permitir peticiones desde el frontend
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "https://tufrontend.vercel.app"},
+		AllowOrigins:     []string{"http://localhost:3000", "https://frontend-cine-conecta.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
