@@ -56,29 +56,30 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Buscar el usuario por email
+	// Buscar usuario
 	result := config.DB.Where("email = ?", input.Email).First(&user)
 	if result.Error != nil {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Email y/o contraseña incorrectos")
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Email o contraseña incorrectos")
 		return
 	}
 
-	// Verificar la contraseña
+	// Verificar contraseña
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Email y/o contraseña incorrectos")
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Email o contraseña incorrectos")
 		return
 	}
 
-	// Generar token JWT
+	// Generar token
 	token, err := utils.GenerateJWT(user.Name, user.Role)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo generar el token")
 		return
 	}
 
+	utils.SetTokenCookie(c, token)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sesión iniciada correctamente",
-		"token":   token,
 	})
 }
 

@@ -3,22 +3,22 @@ package middlewares
 import (
 	"cine_conecta_backend/auth/utils"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
+// Lee el token JWT desde la cookie "cine_token"
 func AdminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token no proporcionado"})
+		// Obtener cookie con el token
+		tokenString, err := c.Cookie("cine_token")
+		if err != nil || tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No se encontró el token"})
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
+		// Validar token
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
@@ -26,13 +26,14 @@ func AdminRequired() gin.HandlerFunc {
 			return
 		}
 
+		// Validar que el rol sea "admin"
 		if claims.Role != "admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Acceso denegado: solo administradores"})
 			c.Abort()
 			return
 		}
 
-		// Guardamos los claims en el contexto por si se necesitan después
+		// Guardar info en el contexto (por si se necesita)
 		c.Set("userName", claims.Name)
 		c.Set("userRole", claims.Role)
 

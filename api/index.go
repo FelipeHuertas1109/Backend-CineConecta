@@ -4,7 +4,6 @@ import (
 	"cine_conecta_backend/auth/routes"
 	"cine_conecta_backend/config"
 	"net/http"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,16 +22,13 @@ func initRouter() {
 
 	// 🔐 Middleware CORS para permitir peticiones desde el frontend
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"https://frontend-cine-conecta.vercel.app",
-		},
+		AllowOrigins:     []string{"http://localhost:3000", "https://tufrontend.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+		AllowCredentials: true, // ✅ Necesario para enviar cookies entre frontend y backend
 	}))
+
 	// Conecta a la base de datos (si tienes la función definida en config)
 	config.ConnectDB()
 
