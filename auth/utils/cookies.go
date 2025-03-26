@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"net/http"
 	"os"
 	"time"
 
@@ -10,13 +11,17 @@ import (
 func SetTokenCookie(c *gin.Context, token string) {
 	isProduction := os.Getenv("ENV") == "production"
 
-	c.SetCookie(
-		"cine_token",                    // nombre
-		token,                           // valor
-		int((24 * time.Hour).Seconds()), // duración: 1 día
-		"/",                             // ruta
-		"",                              // dominio (vacío = actual)
-		isProduction,                    // secure: solo true en producción
-		false,                           // httpOnly: sí o sí
-	)
+	// Construir cookie manualmente con SameSite=None
+	cookie := &http.Cookie{
+		Name:     "cine_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteNoneMode, // ✅ esencial para frontend/backend separados
+		MaxAge:   int((24 * time.Hour).Seconds()),
+	}
+
+	// Establecer cookie manualmente en el header
+	http.SetCookie(c.Writer, cookie)
 }

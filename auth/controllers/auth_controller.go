@@ -7,6 +7,7 @@ import (
 	"cine_conecta_backend/auth/utils"
 	"cine_conecta_backend/config"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -80,6 +81,26 @@ func Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sesión iniciada correctamente",
+	})
+}
+
+func Logout(c *gin.Context) {
+	// Detectar si estás en producción
+	isProduction := os.Getenv("ENV") == "production"
+
+	// Expirar la cookie 'cine_token'
+	c.SetCookie(
+		"cine_token",
+		"", // valor vacío
+		-1, // duración negativa = eliminar
+		"/",
+		"",
+		isProduction, // secure
+		true,         // httpOnly
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Sesión cerrada correctamente",
 	})
 }
 
