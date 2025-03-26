@@ -17,6 +17,6 @@ func SetTokenCookie(c *gin.Context, token string) {
 		"/",                             // ruta
 		"",                              // dominio (vacío = actual)
 		isProduction,                    // secure: solo true en producción
-		true,                            // httpOnly: sí o sí
+		false,                           // httpOnly: sí o sí
 	)
 }
