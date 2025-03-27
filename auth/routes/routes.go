@@ -13,6 +13,7 @@ func RegisterRoutes(r *gin.Engine) {
 		api.POST("/register", controllers.Register)
 		api.POST("/login", controllers.Login)
 		api.POST("/logout", middlewares.AuthRequired(), controllers.Logout)
+		api.GET("/profile", middlewares.AuthRequired(), controllers.GetProfile)
 		// Solo accesible para admin
 		api.GET("/users", middlewares.AdminRequired(), controllers.GetAllUsers)
 		api.DELETE("/users", middlewares.AdminRequired(), controllers.DeleteAllUsers)

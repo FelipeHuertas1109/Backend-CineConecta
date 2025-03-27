@@ -71,7 +71,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generar token
-	token, err := utils.GenerateJWT(user.Name, user.Role)
+	token, err := utils.GenerateJWT(user.ID, user.Role)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo generar el token")
 		return
@@ -132,6 +132,30 @@ func DeleteAllUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Todos los usuarios no admin han sido eliminados"})
+}
+
+func GetProfile(c *gin.Context) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "No autorizado")
+		return
+	}
+
+	// Extraer ID del token
+	userClaims := claims.(*utils.Claims)
+
+	var user models.User
+	if err := config.DB.First(&user, userClaims.UserID).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Usuario no encontrado")
+		return
+	}
+
+	// Devolver solo los campos necesarios
+	c.JSON(http.StatusOK, gin.H{
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.Role,
+	})
 }
 
 func VerifyToken(c *gin.Context) {

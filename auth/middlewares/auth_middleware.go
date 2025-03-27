@@ -27,8 +27,7 @@ func AuthRequired() gin.HandlerFunc {
 		}
 
 		// Guardar datos en el contexto
-		c.Set("userName", claims.Name)
-		c.Set("userRole", claims.Role)
+		c.Set("claims", claims)
 
 		c.Next()
 	}
@@ -61,8 +60,7 @@ func AdminRequired() gin.HandlerFunc {
 		}
 
 		// Guardar info en el contexto (por si se necesita)
-		c.Set("userName", claims.Name)
-		c.Set("userRole", claims.Role)
+		c.Set("claims", claims)
 
 		c.Next()
 	}

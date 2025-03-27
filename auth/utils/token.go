@@ -11,18 +11,18 @@ import (
 var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 type Claims struct {
-	Name string `json:"name"`
-	Role string `json:"role"`
+	UserID uint   `json:"id"` // ✅ Agregado: ID
+	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// Genera un token JWT con nombre y rol
-func GenerateJWT(name string, role string) (string, error) {
+// Generar token con ID y rol
+func GenerateJWT(userID uint, role string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 
 	claims := &Claims{
-		Name: name,
-		Role: role,
+		UserID: userID,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
