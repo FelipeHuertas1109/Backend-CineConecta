@@ -16,7 +16,7 @@ func SetTokenCookie(c *gin.Context, token string) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: false,
-		Secure:   isProduction,
+		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		MaxAge:   int((24 * time.Hour).Seconds()),
 	}
