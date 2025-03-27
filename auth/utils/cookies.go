@@ -13,7 +13,7 @@ func SetTokenCookie(c *gin.Context, token string) {
 		Name:     "cine_token",
 		Value:    token,
 		Path:     "/",
-		HttpOnly: false,
+		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		MaxAge:   int((24 * time.Hour).Seconds()),
