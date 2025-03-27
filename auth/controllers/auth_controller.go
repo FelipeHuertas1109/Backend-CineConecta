@@ -76,7 +76,8 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	utils.SetTokenCookie(c, token)
+	// Comentado: Ya no establecemos la cookie desde el backend
+	// utils.SetTokenCookie(c, token)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sesión iniciada correctamente",
