@@ -24,12 +24,13 @@ func initRouter() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "https://frontend-cine-conecta.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true, // ✅ Necesario para enviar cookies entre frontend y backend
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept"},
+		ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
+		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 horas
 	}))
 
-	// Conecta a la base de datos (si tienes la función definida en config)
+	// Conecta a la base de datos
 	config.ConnectDB()
 
 	// Registra las rutas definidas en el paquete routes

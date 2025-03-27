@@ -2,24 +2,28 @@ package utils
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetTokenCookie(c *gin.Context, token string) {
-	//isProduction := os.Getenv("ENV") == "production"
+	isProduction := os.Getenv("ENV") == "production"
 
 	cookie := &http.Cookie{
 		Name:     "cine_token",
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   isProduction,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int((24 * time.Hour).Seconds()),
 	}
 
-	// Establecer cookie manualmente en el header
+	if isProduction {
+		cookie.Domain = ".vercel.app"
+	}
+
 	http.SetCookie(c.Writer, cookie)
 }
