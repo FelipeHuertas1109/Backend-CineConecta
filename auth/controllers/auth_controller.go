@@ -76,12 +76,10 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Comentado: Ya no establecemos la cookie desde el backend
-	// utils.SetTokenCookie(c, token)
+	utils.SetTokenCookie(c, token)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sesión iniciada correctamente",
-		"token":   token,
 	})
 }
 
@@ -94,7 +92,7 @@ func Logout(c *gin.Context) {
 		HttpOnly: false,
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
-		MaxAge:   -1, // Eliminar la cookie
+		MaxAge:   -1,
 	}
 
 	http.SetCookie(c.Writer, cookie)
