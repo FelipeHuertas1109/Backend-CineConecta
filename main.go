@@ -1,22 +1,14 @@
 package main
 
 import (
-	"cine_conecta_backend/auth/routes"
-	"cine_conecta_backend/config"
+	"log"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
+	handler "cine_conecta_backend/api"
 )
 
 func main() {
 	// Conexión a la base de datos
-	config.ConnectDB()
-
-	// Crear router
-	r := gin.Default()
-
-	// Registrar rutas
-	routes.RegisterRoutes(r)
-
-	// Iniciar servidor local
-	r.Run(":8080") // http://localhost:8080
+	log.Println("Server running on http://localhost:8080")
+	http.ListenAndServe(":8080", http.HandlerFunc(handler.Handler))
 }
