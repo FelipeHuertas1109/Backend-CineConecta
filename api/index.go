@@ -24,8 +24,8 @@ func initRouter() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "https://frontend-cine-conecta.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept"},
-		ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length", "Set-Cookie", "Access-Control-Allow-Credentials"},
 		AllowCredentials: true,
 		MaxAge:           12 * 60 * 60, // 12 horas
 	}))
