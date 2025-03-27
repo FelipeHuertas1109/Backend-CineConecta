@@ -133,3 +133,11 @@ func DeleteAllUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Todos los usuarios no admin han sido eliminados"})
 }
+
+func VerifyToken(c *gin.Context) {
+	// La cookie ya está siendo verificada por el middleware de autenticación
+	// Si llegamos aquí, significa que el token es válido
+	c.JSON(http.StatusOK, gin.H{
+		"authenticated": true,
+	})
+}
