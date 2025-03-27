@@ -22,7 +22,7 @@ func SetTokenCookie(c *gin.Context, token string) {
 	}
 
 	if isProduction {
-		cookie.Domain = ""
+		cookie.Domain = ".vercel.app"
 		cookie.SameSite = http.SameSiteNoneMode
 	}
 
