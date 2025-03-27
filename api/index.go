@@ -30,6 +30,13 @@ func initRouter() {
 		MaxAge:           12 * 60 * 60, // 12 horas
 	}))
 
+	// Middleware adicional para asegurar que los headers de CORS estén presentes
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Origin", c.GetHeader("Origin"))
+		c.Next()
+	})
+
 	// Conecta a la base de datos
 	config.ConnectDB()
 

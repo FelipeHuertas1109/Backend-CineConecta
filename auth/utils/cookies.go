@@ -9,7 +9,7 @@ import (
 )
 
 func SetTokenCookie(c *gin.Context, token string) {
-	isProduction := os.Getenv("ENV") == "production"
+	isProduction := os.Getenv("VERCEL") != ""
 
 	cookie := &http.Cookie{
 		Name:     "cine_token",
@@ -19,11 +19,11 @@ func SetTokenCookie(c *gin.Context, token string) {
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		MaxAge:   int((24 * time.Hour).Seconds()),
+		Domain:   "*",
 	}
 
 	if isProduction {
-		cookie.Domain = ""
-		cookie.SameSite = http.SameSiteNoneMode
+		cookie.Domain = "*"
 	}
 
 	http.SetCookie(c.Writer, cookie)
