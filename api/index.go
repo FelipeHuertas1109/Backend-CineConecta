@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"cine_conecta_backend/auth/routes"
 	"cine_conecta_backend/config"
+	"cine_conecta_backend/routes"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
