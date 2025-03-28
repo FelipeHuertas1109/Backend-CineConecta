@@ -37,7 +37,6 @@ func DeleteMovie(id uint) error {
 
 var allowedSortFields = map[string]bool{
 	"title":  true,
-	"genre":  true,
 	"rating": true,
 }
 
