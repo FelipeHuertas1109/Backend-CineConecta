@@ -126,7 +126,8 @@ Puedes usar `seed_movies.go` para insertar películas de prueba en la base de da
 **Felipe Huertas**  
 Backend Developer  
 📧 fhuertas@unillanos.edu.co
+
 **Juan Romero**
-Backend Developer 
+Backend Developer
 📧 juanromero2719@gmail.com
 https://wrydmoon.site
