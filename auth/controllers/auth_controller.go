@@ -7,7 +7,6 @@ import (
 	"cine_conecta_backend/auth/utils"
 	"cine_conecta_backend/config"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -85,19 +84,18 @@ func Login(c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
-	// Detectar si estás en producción
-	isProduction := os.Getenv("ENV") == "production"
-
 	// Expirar la cookie 'cine_token'
-	c.SetCookie(
-		"cine_token",
-		"", // valor vacío
-		-1, // duración negativa = eliminar
-		"/",
-		"",
-		isProduction, // secure
-		true,         // httpOnly
-	)
+	cookie := &http.Cookie{
+		Name:     "cine_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+		MaxAge:   -1,
+	}
+
+	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sesión cerrada correctamente",
@@ -159,9 +157,14 @@ func GetProfile(c *gin.Context) {
 }
 
 func VerifyToken(c *gin.Context) {
-	// La cookie ya está siendo verificada por el middleware de autenticación
-	// Si llegamos aquí, significa que el token es válido
+	_, exists := c.Get("claims")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Token no válido o expirado")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"authenticated": true,
+		"message":       "Token válido",
 	})
 }

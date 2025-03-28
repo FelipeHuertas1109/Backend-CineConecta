@@ -24,11 +24,18 @@ func initRouter() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "https://frontend-cine-conecta.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept"},
-		ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type", "Accept", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length", "Set-Cookie", "Access-Control-Allow-Credentials"},
 		AllowCredentials: true,
 		MaxAge:           12 * 60 * 60, // 12 horas
 	}))
+
+	// Middleware adicional para asegurar que los headers de CORS estén presentes
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Origin", c.GetHeader("Origin"))
+		c.Next()
+	})
 
 	// Conecta a la base de datos
 	config.ConnectDB()
