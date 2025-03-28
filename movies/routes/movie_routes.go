@@ -18,5 +18,6 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		movies.POST("/", middlewares.AdminRequired(), controllers.CreateMovie)
 		movies.PUT("/:id", middlewares.AdminRequired(), controllers.UpdateMovie)
 		movies.DELETE("/:id", middlewares.AdminRequired(), controllers.DeleteMovie)
+		movies.GET("/sorted", controllers.GetMoviesSorted) // Ej: /api/movies/sorted?sortBy=rating&order=desc
 	}
 }

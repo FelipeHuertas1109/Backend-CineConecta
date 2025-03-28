@@ -103,3 +103,16 @@ func DeleteMovie(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Película eliminada correctamente"})
 }
+
+func GetMoviesSorted(c *gin.Context) {
+	sortBy := c.DefaultQuery("sortBy", "title")
+	order := c.DefaultQuery("order", "asc")
+
+	movies, err := services.GetMoviesSorted(sortBy, order)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, movies)
+}
