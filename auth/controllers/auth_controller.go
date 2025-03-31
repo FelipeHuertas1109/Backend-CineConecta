@@ -168,3 +168,82 @@ func VerifyToken(c *gin.Context) {
 		"message":       "Token válido",
 	})
 }
+
+// Solicitar restablecimiento de contraseña
+func ForgotPassword(c *gin.Context) {
+	var input struct {
+		Email string `json:"email"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Correo inválido")
+		return
+	}
+
+	// Buscar si el correo existe
+	var user models.User
+	result := config.DB.Where("email = ?", input.Email).First(&user)
+	if result.Error != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Correo no registrado")
+		return
+	}
+
+	// Generar token de restablecimiento (puedes usar un token JWT)
+	token, err := utils.GenerateJWT(user.ID, user.Role)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al generar el token")
+		return
+	}
+
+	// Enviar correo con el enlace para restablecer la contraseña
+	err = services.SendResetPasswordEmail(user.Email, token)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo enviar el correo de restablecimiento")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Correo de restablecimiento enviado"})
+}
+
+// Restablecer la contraseña
+func ResetPassword(c *gin.Context) {
+	var input struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
+		return
+	}
+
+	// Validar el token (por ejemplo, con JWT)
+	claims, err := utils.ValidateToken(input.Token)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Token inválido o expirado")
+		return
+	}
+
+	// Buscar el usuario por el ID
+	var user models.User
+	if err := config.DB.First(&user, claims.UserID).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Usuario no encontrado")
+		return
+	}
+
+	// Encriptar nueva contraseña
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al encriptar la nueva contraseña")
+		return
+	}
+
+	// Actualizar la contraseña del usuario
+	user.Password = string(hashedPassword)
+	if err := config.DB.Save(&user).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo actualizar la contraseña")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Contraseña restablecida correctamente"})
+}
