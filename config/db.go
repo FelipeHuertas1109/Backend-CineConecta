@@ -2,6 +2,7 @@ package config
 
 import (
 	authModels "cine_conecta_backend/auth/models"
+	commentModels "cine_conecta_backend/comments/models"
 	movieModels "cine_conecta_backend/movies/models"
 	"fmt"
 	"log"
@@ -38,6 +39,7 @@ func ConnectDB() {
 	fmt.Println("✅ Conectado a PostgreSQL correctamente")
 	db.AutoMigrate(
 		&authModels.User{},
-		&movieModels.Movie{})
+		&movieModels.Movie{},
+		&commentModels.Comment{})
 	DB = db
 }

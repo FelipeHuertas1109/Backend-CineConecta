@@ -20,6 +20,5 @@ func RegisterAuthRoutes(r *gin.Engine) {
 		api.GET("/users", middlewares.AdminRequired(), controllers.GetAllUsers)
 		api.DELETE("/users", middlewares.AdminRequired(), controllers.DeleteAllUsers)
 		api.GET("/verify-token", middlewares.AuthRequired(), controllers.VerifyToken)
-
 	}
 }
