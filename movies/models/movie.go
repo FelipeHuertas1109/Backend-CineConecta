@@ -10,6 +10,7 @@ type Movie struct {
 	Director    string    `json:"director"`
 	ReleaseDate time.Time `json:"release_date"`
 	Rating      float32   `json:"rating"`
+	PosterURL   string    `json:"poster_url"` // 🆕
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

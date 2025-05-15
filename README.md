@@ -99,10 +99,26 @@ Con credenciales (cookies) activadas.
 Crea un archivo `.env` con:
 
 ```
+# Configuración básica
 DATABASE_URL=postgresql://... (tu cadena de conexión a PostgreSQL)
 JWT_SECRET=clave-secreta-segura
 ENV=development
+
+# Configuración para almacenamiento S3 (para subida de imágenes)
+S3_ENDPOINT=https://tu-proyecto.supabase.co/storage/v1/s3
+S3_REGION=us-east-1
+S3_BUCKET=nombre-de-tu-bucket
+S3_ACCESS_KEY=tu-access-key
+S3_SECRET_KEY=tu-secret-key
 ```
+
+### Configuración de Supabase para almacenamiento
+
+Para habilitar la subida de imágenes utilizando Supabase como proveedor S3:
+
+1. Crea un bucket público en Supabase Storage llamado `imagenes` (o el nombre que prefieras)
+2. Ve a la sección Storage > Policies de tu bucket y configura una política que permita uploads públicos
+3. Copia las credenciales de la sección Project Settings > API a tu archivo `.env`
 
 ---
 

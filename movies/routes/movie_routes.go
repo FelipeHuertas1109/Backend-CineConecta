@@ -13,11 +13,19 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		// Lectura pública o con autenticación básica
 		movies.GET("/", controllers.GetMovies)
 		movies.GET("/:id", controllers.GetMovie)
+		movies.GET("/sorted", controllers.GetMoviesSorted)
+
+		// Búsqueda avanzada
+		movies.GET("/search", controllers.SearchMovies)
+		movies.GET("/genres", controllers.GetGenres)
 
 		// Rutas restringidas a admin
 		movies.POST("/", middlewares.AdminRequired(), controllers.CreateMovie)
 		movies.PUT("/:id", middlewares.AdminRequired(), controllers.UpdateMovie)
 		movies.DELETE("/:id", middlewares.AdminRequired(), controllers.DeleteMovie)
-		movies.GET("/sorted", controllers.GetMoviesSorted) // Ej: /api/movies/sorted?sortBy=rating&order=desc
+		movies.POST("/:id/poster", middlewares.AdminRequired(), controllers.UploadPoster)
 	}
+
+	// Registrar las rutas de recomendaciones
+	RegisterRecommendationRoutes(r)
 }

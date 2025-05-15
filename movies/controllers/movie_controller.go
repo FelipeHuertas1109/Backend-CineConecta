@@ -116,3 +116,50 @@ func GetMoviesSorted(c *gin.Context) {
 
 	c.JSON(http.StatusOK, movies)
 }
+
+func UploadPoster(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID inválido")
+		return
+	}
+
+	// Verificar si la película existe
+	movie, err := services.GetMovieByID(uint(id))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Película no encontrada")
+		return
+	}
+
+	fileHeader, err := c.FormFile("poster")
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Archivo no encontrado (campo 'poster')")
+		return
+	}
+
+	// Validar tamaño y tipo de archivo
+	if fileHeader.Size > 50<<20 { // 50 MB
+		utils.ErrorResponse(c, http.StatusBadRequest, "El archivo supera los 50 MB")
+		return
+	}
+
+	mime := fileHeader.Header.Get("Content-Type")
+	if mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Formato no permitido. Sólo se aceptan JPEG, PNG o WEBP")
+		return
+	}
+
+	url, err := services.UploadPoster(uint(id), fileHeader)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Devolver respuesta con la película actualizada
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Póster subido correctamente",
+		"poster_url": url,
+		"movie":      movie,
+	})
+}
