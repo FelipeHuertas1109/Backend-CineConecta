@@ -18,6 +18,13 @@ func GetMovies() ([]models.Movie, error) {
 	return movies, err
 }
 
+// GetRecentMovies obtiene las películas más recientes según su fecha de lanzamiento.
+func GetRecentMovies(limit int) ([]models.Movie, error) {
+	var movies []models.Movie
+	err := config.DB.Order("release_date DESC").Limit(limit).Find(&movies).Error
+	return movies, err
+}
+
 // GetMovieByID obtiene una película por su ID.
 func GetMovieByID(id uint) (models.Movie, error) {
 	var movie models.Movie

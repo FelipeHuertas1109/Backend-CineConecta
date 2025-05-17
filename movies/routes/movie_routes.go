@@ -14,10 +14,12 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		movies.GET("/", controllers.GetMovies)
 		movies.GET("/:id", controllers.GetMovie)
 		movies.GET("/sorted", controllers.GetMoviesSorted)
+		movies.GET("/recent", controllers.GetRecentMovies)
 
 		// Búsqueda avanzada
 		movies.GET("/search", controllers.SearchMovies)
 		movies.GET("/genres", controllers.GetGenres)
+		movies.GET("/genres/detailed", controllers.GetGenresDetailed)
 
 		// Rutas restringidas a admin
 		movies.POST("/", middlewares.AdminRequired(), controllers.CreateMovie)

@@ -40,6 +40,27 @@ func GetMovies(c *gin.Context) {
 	c.JSON(http.StatusOK, movies)
 }
 
+// GetRecentMovies devuelve las películas más recientes según su fecha de lanzamiento.
+// Método: GET /api/movies/recent
+func GetRecentMovies(c *gin.Context) {
+	// Obtener el parámetro 'limit' de la consulta (por defecto 10)
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10 // Si hay error o el límite es inválido, usar 10 por defecto
+	}
+
+	movies, err := services.GetRecentMovies(limit)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudieron obtener las películas recientes")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"count":   len(movies),
+		"results": movies,
+	})
+}
+
 // GetMovie devuelve una película por su ID.
 // Método: GET /api/movies/:id
 func GetMovie(c *gin.Context) {

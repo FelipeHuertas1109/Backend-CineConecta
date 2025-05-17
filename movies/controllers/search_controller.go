@@ -49,10 +49,10 @@ func SearchMovies(c *gin.Context) {
 	})
 }
 
-// GetGenres devuelve todos los géneros disponibles
+// GetGenres devuelve todos los géneros disponibles (solo nombres)
 // GET /api/movies/genres
 func GetGenres(c *gin.Context) {
-	genres, err := services.GetAllGenres()
+	genres, err := services.GetSimpleGenres()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener géneros")
 		return
@@ -60,5 +60,20 @@ func GetGenres(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"genres": genres,
+	})
+}
+
+// GetGenresDetailed devuelve todos los géneros con información detallada
+// GET /api/movies/genres/detailed
+func GetGenresDetailed(c *gin.Context) {
+	genres, err := services.GetAllGenres()
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener información de géneros")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"genres": genres,
+		"count":  len(genres),
 	})
 }
