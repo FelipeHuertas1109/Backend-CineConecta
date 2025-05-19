@@ -14,6 +14,6 @@ func RegisterRecommendationRoutes(r *gin.Engine) {
 		recommendations.GET("/me", middlewares.AuthRequired(), controllers.GetMyRecommendations)
 
 		// Recomendaciones populares basadas en el análisis de sentimientos (disponible para todos)
-		recommendations.GET("/popular", controllers.GetPopularRecommendations)
+		recommendations.GET("/popular", middlewares.AuthRequired(), controllers.GetPopularRecommendations)
 	}
 }

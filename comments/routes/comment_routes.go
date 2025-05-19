@@ -10,8 +10,8 @@ import (
 func RegisterCommentRoutes(r *gin.Engine) {
 	comments := r.Group("/api/comments")
 	{
-		comments.GET("/", controllers.GetComments)
-		comments.GET("/:id", controllers.GetComment)
+		comments.GET("/", middlewares.AuthRequired(), controllers.GetComments)
+		comments.GET("/:id", middlewares.AuthRequired(), controllers.GetComment)
 
 		// Sólo usuarios logueados pueden crear/editar/borrar sus comentarios
 		comments.POST("/", middlewares.AuthRequired(), controllers.CreateComment)
@@ -25,8 +25,8 @@ func RegisterCommentRoutes(r *gin.Engine) {
 	// Rutas para película-comentarios
 	movies := r.Group("/api/movies")
 	{
-		movies.GET("/:id/comments", controllers.GetMovieComments)
-		movies.GET("/:id/sentiment", controllers.GetMovieSentiment)
+		movies.GET("/:id/comments", middlewares.AuthRequired(), controllers.GetMovieComments)
+		movies.GET("/:id/sentiment", middlewares.AuthRequired(), controllers.GetMovieSentiment)
 	}
 
 	// Rutas para usuario-comentarios

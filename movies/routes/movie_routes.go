@@ -11,15 +11,15 @@ func RegisterMovieRoutes(r *gin.Engine) {
 	movies := r.Group("/api/movies")
 	{
 		// Lectura pública o con autenticación básica
-		movies.GET("/", controllers.GetMovies)
-		movies.GET("/:id", controllers.GetMovie)
-		movies.GET("/sorted", controllers.GetMoviesSorted)
-		movies.GET("/recent", controllers.GetRecentMovies)
+		movies.GET("/", middlewares.AuthRequired(), controllers.GetMovies)
+		movies.GET("/:id", middlewares.AuthRequired(), controllers.GetMovie)
+		movies.GET("/sorted", middlewares.AuthRequired(), controllers.GetMoviesSorted)
+		movies.GET("/recent", middlewares.AuthRequired(), controllers.GetRecentMovies)
 
 		// Búsqueda avanzada
-		movies.GET("/search", controllers.SearchMovies)
-		movies.GET("/genres", controllers.GetGenres)
-		movies.GET("/genres/detailed", controllers.GetGenresDetailed)
+		movies.GET("/search", middlewares.AuthRequired(), controllers.SearchMovies)
+		movies.GET("/genres", middlewares.AuthRequired(), controllers.GetGenres)
+		movies.GET("/genres/detailed", middlewares.AuthRequired(), controllers.GetGenresDetailed)
 
 		// Rutas restringidas a admin
 		movies.POST("/", middlewares.AdminRequired(), controllers.CreateMovie)

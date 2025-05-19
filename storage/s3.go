@@ -31,93 +31,91 @@ func init() {
 	_ = godotenv.Load()
 
 	// 2) Imprime configuración para depurar
-	endpoint := strings.TrimSpace(os.Getenv("S3_ENDPOINT"))
+	endpointURL := strings.TrimSpace(os.Getenv("S3_ENDPOINT"))
 	region := strings.TrimSpace(os.Getenv("S3_REGION"))
 	bucketEnv := strings.TrimSpace(os.Getenv("S3_BUCKET"))
 	accessEnv := strings.TrimSpace(os.Getenv("S3_ACCESS_KEY"))
 	secretEnv := strings.TrimSpace(os.Getenv("S3_SECRET_KEY"))
 
 	fmt.Println("📦 [DEBUG] Configuración S3 cargada:")
-	fmt.Println("    S3_ENDPOINT  :", endpoint)
+	fmt.Println("    S3_ENDPOINT  :", endpointURL)
 	fmt.Println("    S3_REGION    :", region)
 	fmt.Println("    S3_BUCKET    :", bucketEnv)
 	fmt.Println("    S3_ACCESS_KEY:", maskSecret(accessEnv))
 	fmt.Println("    S3_SECRET_KEY:", maskSecret(secretEnv))
 
-	if endpoint == "" || region == "" || bucketEnv == "" || accessEnv == "" || secretEnv == "" {
+	if endpointURL == "" || region == "" || bucketEnv == "" || accessEnv == "" || secretEnv == "" {
 		log.Println("⚠️ [ADVERTENCIA] Variables de entorno S3 incompletas. Subida de imágenes deshabilitada.")
 		return
 	}
 
 	// 3) Asigna variables globales
 	bucket = bucketEnv
-	isSupabase = strings.Contains(endpoint, "supabase")
+	isSupabase = strings.Contains(endpointURL, "supabase")
 
 	// Para Supabase, la URL pública debe construirse correctamente
 	if isSupabase {
-		// Formato correcto para Supabase: https://[proyecto].supabase.co/storage/v1/object/public/[bucket]/[path]
-		baseEndpoint := strings.Replace(endpoint, "/storage/v1/s3", "", 1)
+		// https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
+		baseEndpoint := strings.Replace(endpointURL, "/storage/v1/s3", "", 1)
 		baseURL = fmt.Sprintf("%s/storage/v1/object/public/%s", baseEndpoint, bucket)
 	} else {
-		baseURL = fmt.Sprintf("%s/%s", endpoint, bucket)
+		baseURL = fmt.Sprintf("%s/%s", endpointURL, bucket)
 	}
 
 	fmt.Println("    BASE_URL     :", baseURL)
 	fmt.Println("    ES SUPABASE  :", isSupabase)
 
-	// 4) Configuración personalizada para Supabase
+	// 4) Configuración del cliente S3
 	var s3Client *s3.Client
 
 	if isSupabase {
-		// Para Supabase, usamos configuración específica
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, reg string, _ ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: reg,
-			}, nil
-		})
+		// Resolver específico para Supabase (path-style + servicio "s3")
+		supabaseResolver := s3.EndpointResolverFunc(
+			func(region string, options s3.EndpointResolverOptions) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					URL:           endpointURL, // p.ej. https://zufjxpgxyhphoygtxqit.supabase.co/storage/v1/s3
+					PartitionID:   "aws",       // requerido por el SDK
+					SigningRegion: region,
+					SigningName:   "s3", // ← clave para que la firma coincida
+				}, nil
+			})
 
 		cfg, err := config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithRegion(region),
-			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, "")),
-			config.WithEndpointResolverWithOptions(customResolver),
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, ""),
+			),
 		)
 		if err != nil {
 			panic(fmt.Sprintf("❌ Error al cargar configuración S3: %v", err))
 		}
 
-		// Cliente S3 para Supabase - sin path style
-		s3Client = s3.NewFromConfig(cfg)
+		// Cliente S3 para Supabase: path-style y resolver propio
+		s3Client = s3.NewFromConfig(cfg,
+			s3.WithEndpointResolver(supabaseResolver),
+			func(o *s3.Options) { o.UsePathStyle = true },
+		)
 	} else {
-		// Configuración estándar para otros proveedores S3
+		// Cliente estándar para otros proveedores
 		cfg, err := config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithRegion(region),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, "")),
-			config.WithEndpointResolverWithOptions(
-				aws.EndpointResolverWithOptionsFunc(func(service, reg string, _ ...interface{}) (aws.Endpoint, error) {
-					return aws.Endpoint{
-						URL:           endpoint,
-						SigningRegion: reg,
-						SigningName:   "s3",
-					}, nil
-				})),
 		)
 		if err != nil {
 			panic(fmt.Sprintf("❌ Error al cargar configuración S3: %v", err))
 		}
 
-		// Cliente S3 estándar con path style
 		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.UsePathStyle = true
 		})
 	}
 
-	// 6) Inicializa el uploader con timeouts
+	// 5) Inicializa el uploader
 	uploader = manager.NewUploader(s3Client, func(u *manager.Uploader) {
 		u.Concurrency = 1
-		u.PartSize = 5 * 1024 * 1024 // 5MB por parte
+		u.PartSize = 5 * 1024 * 1024 // 5 MB
 		u.LeavePartsOnError = false
 	})
 }
@@ -132,11 +130,9 @@ func UploadPoster(key string, file multipart.File, mime string) (string, error) 
 	fmt.Println("📤 [DEBUG] Key del archivo:", key)
 	fmt.Println("📤 [DEBUG] Tipo MIME:", mime)
 
-	// Crear contexto con timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Configuración de carga específica para cada proveedor
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(bucket),
 		Key:         aws.String(key),
@@ -144,12 +140,11 @@ func UploadPoster(key string, file multipart.File, mime string) (string, error) 
 		ContentType: aws.String(mime),
 	}
 
-	// Solo añadir ACL si no es Supabase (que maneja permisos de forma diferente)
+	// Supabase maneja permisos de manera interna
 	if !isSupabase {
 		input.ACL = types.ObjectCannedACLPublicRead
 	}
 
-	// Intentar subir el archivo
 	resp, err := uploader.Upload(ctx, input)
 	if err != nil {
 		fmt.Println("❌ [ERROR] Falló PutObject:", err)
@@ -158,7 +153,6 @@ func UploadPoster(key string, file multipart.File, mime string) (string, error) 
 
 	fmt.Println("✅ [DEBUG] Subida exitosa. Location:", resp.Location)
 
-	// Construye la URL pública
 	url := fmt.Sprintf("%s/%s", baseURL, key)
 	fmt.Println("✅ [DEBUG] URL pública:", url)
 	return url, nil
