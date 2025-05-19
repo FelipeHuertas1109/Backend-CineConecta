@@ -40,6 +40,7 @@ func ConnectDB() {
 	db.AutoMigrate(
 		&authModels.User{},
 		&movieModels.Movie{},
-		&commentModels.Comment{})
+		&commentModels.Comment{},
+		&commentModels.RecommendationDataset{})
 	DB = db
 }

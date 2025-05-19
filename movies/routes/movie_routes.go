@@ -16,6 +16,10 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		movies.GET("/sorted", middlewares.AuthRequired(), controllers.GetMoviesSorted)
 		movies.GET("/recent", middlewares.AuthRequired(), controllers.GetRecentMovies)
 
+		// Películas mejor valoradas
+		movies.GET("/top-rated", middlewares.AuthRequired(), controllers.GetTopRatedMovies)
+		movies.GET("/average-score", middlewares.AuthRequired(), controllers.GetMovieWithAverageScore)
+
 		// Búsqueda avanzada
 		movies.GET("/search", middlewares.AuthRequired(), controllers.SearchMovies)
 		movies.GET("/genres", middlewares.AuthRequired(), controllers.GetGenres)

@@ -23,79 +23,74 @@ type RecommendationResponse struct {
 // GetRecommendationsForUser genera recomendaciones basadas
 // en los comentarios (sentiment_score 1-10) del usuario.
 func GetRecommendationsForUser(userID uint, limit int) ([]RecommendationResponse, error) {
-	// 1. comentarios “me gusta” (≥ 7)
+	// Obtener todos los comentarios del usuario (independientemente del score)
 	var userComments []models.Comment
 	if err := config.DB.
-		Where("user_id = ? AND sentiment_score >= ?", userID, 7.0).
+		Where("user_id = ?", userID).
 		Preload("Movie").
 		Find(&userComments).Error; err != nil {
 		return nil, err
 	}
 
+	// Si no hay comentarios, retornar lista vacía
 	if len(userComments) == 0 {
-		return getTopMovies(limit) // sin historial → ranking global
+		return []RecommendationResponse{}, nil
 	}
 
-	// 2. gustos
-	genreLikes := map[string]int{}
-	directorLikes := map[string]int{}
-	commentedIDs := map[uint]struct{}{}
+	// Preparar películas comentadas
+	commentedMovies := make(map[uint]*movieModels.Movie)
 	for _, c := range userComments {
-		genreLikes[c.Movie.Genre]++
-		directorLikes[c.Movie.Director]++
-		commentedIDs[c.MovieID] = struct{}{}
+		commentedMovies[c.MovieID] = &c.Movie
 	}
 
-	// 3. candidatas sin comentar
-	var candidates []movieModels.Movie
-	if err := config.DB.Where("id NOT IN ?", keys(commentedIDs)).Find(&candidates).Error; err != nil {
-		return nil, err
+	// Preparar recomendaciones solo de películas que el usuario ha comentado
+	var recommendations []RecommendationResponse
+	for movieID, movie := range commentedMovies {
+		// Obtener sentimiento asociado a esta película para este usuario
+		var userSentiment float64
+		var userCommentForThisMovie models.Comment
+		if err := config.DB.
+			Where("user_id = ? AND movie_id = ?", userID, movieID).
+			Order("updated_at DESC"). // Comentario más reciente
+			First(&userCommentForThisMovie).Error; err == nil {
+			userSentiment = userCommentForThisMovie.SentimentScore
+		}
+
+		// Convertir sentimiento a puntuación (0-10)
+		score := userSentiment
+		if score == 0 {
+			score = 5 // Valor neutral si no hay sentimiento detectado
+		}
+
+		// Determinar razón de la recomendación
+		reason := "Película que has comentado"
+		if score >= 7 {
+			reason = "Película que has valorado positivamente"
+		} else if score < 5 {
+			reason = "Película que has valorado negativamente"
+		}
+
+		// Añadir a recomendaciones
+		recommendations = append(recommendations, RecommendationResponse{
+			MovieID:         movieID,
+			Title:           movie.Title,
+			PredictedRating: round1(score),
+			RatingText:      getRatingDescription(score),
+			Reason:          reason,
+		})
 	}
 
-	// 4. puntuar
-	type scored struct {
-		movie  movieModels.Movie
-		score  float64
-		reason string
-	}
-	var all []scored
-	for _, m := range candidates {
-		_, avg, _ := GetMovieSentiment(m.ID) // función ya existente
-		s := avg
-		reason := ""
+	// Ordenar por puntuación (descendente)
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i].PredictedRating > recommendations[j].PredictedRating
+	})
 
-		if genreLikes[m.Genre] > 0 {
-			s += 2
-			reason = "Mismo género que sueles puntuar alto"
-		}
-		if directorLikes[m.Director] > 0 {
-			s += 1
-			if reason == "" {
-				reason = "Mismo director que sueles puntuar alto"
-			}
-		}
-		if reason == "" {
-			reason = "Alta puntuación media"
-		}
-		all = append(all, scored{movie: m, score: s, reason: reason})
-	}
-	sort.Slice(all, func(i, j int) bool { return all[i].score > all[j].score })
-	if len(all) > limit {
-		all = all[:limit]
+	// Limitar resultados si es necesario
+	if len(recommendations) > limit {
+		recommendations = recommendations[:limit]
 	}
 
-	// 5. respuesta
-	resp := make([]RecommendationResponse, len(all))
-	for i, sm := range all {
-		resp[i] = RecommendationResponse{
-			MovieID:         sm.movie.ID,
-			Title:           sm.movie.Title,
-			PredictedRating: round1(sm.score),
-			RatingText:      getRatingDescription(sm.score),
-			Reason:          sm.reason,
-		}
-	}
-	return resp, nil
+	return recommendations, nil
 }
 
 // ---------- helpers ----------

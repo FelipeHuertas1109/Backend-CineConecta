@@ -36,8 +36,17 @@ func GetUserRecommendations(c *gin.Context) {
 		return
 	}
 
+	var message string
+	if len(recs) > 0 {
+		message = "Se encontraron " + strconv.Itoa(len(recs)) + " películas que has comentado."
+	} else {
+		message = "No has comentado ninguna película aún. Comenta algunas películas para recibir recomendaciones."
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":         id,
 		"recommendations": recs,
+		"message":         message,
+		"type":            "películas_comentadas",
 	})
 }

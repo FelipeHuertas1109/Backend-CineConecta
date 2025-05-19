@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4" // ← firmante Sig-V4
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -27,56 +28,47 @@ var (
 )
 
 func init() {
-	// 1) Carga .env
 	_ = godotenv.Load()
 
-	// 2) Imprime configuración para depurar
 	endpointURL := strings.TrimSpace(os.Getenv("S3_ENDPOINT"))
 	region := strings.TrimSpace(os.Getenv("S3_REGION"))
 	bucketEnv := strings.TrimSpace(os.Getenv("S3_BUCKET"))
 	accessEnv := strings.TrimSpace(os.Getenv("S3_ACCESS_KEY"))
 	secretEnv := strings.TrimSpace(os.Getenv("S3_SECRET_KEY"))
 
-	fmt.Println("📦 [DEBUG] Configuración S3 cargada:")
-	fmt.Println("    S3_ENDPOINT  :", endpointURL)
-	fmt.Println("    S3_REGION    :", region)
-	fmt.Println("    S3_BUCKET    :", bucketEnv)
-	fmt.Println("    S3_ACCESS_KEY:", maskSecret(accessEnv))
-	fmt.Println("    S3_SECRET_KEY:", maskSecret(secretEnv))
+	fmt.Println("📦 [DEBUG] Configuración S3:")
+	fmt.Println("    ENDPOINT :", endpointURL)
+	fmt.Println("    REGION   :", region)
+	fmt.Println("    BUCKET   :", bucketEnv)
 
-	if endpointURL == "" || region == "" || bucketEnv == "" || accessEnv == "" || secretEnv == "" {
-		log.Println("⚠️ [ADVERTENCIA] Variables de entorno S3 incompletas. Subida de imágenes deshabilitada.")
+	if endpointURL == "" || region == "" || bucketEnv == "" ||
+		accessEnv == "" || secretEnv == "" {
+		log.Println("⚠️  Variables S3 incompletas; Storage deshabilitado")
 		return
 	}
 
-	// 3) Asigna variables globales
 	bucket = bucketEnv
 	isSupabase = strings.Contains(endpointURL, "supabase")
 
-	// Para Supabase, la URL pública debe construirse correctamente
 	if isSupabase {
-		// https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>/<path>
+		// URL pública para Supabase
 		baseEndpoint := strings.Replace(endpointURL, "/storage/v1/s3", "", 1)
 		baseURL = fmt.Sprintf("%s/storage/v1/object/public/%s", baseEndpoint, bucket)
 	} else {
 		baseURL = fmt.Sprintf("%s/%s", endpointURL, bucket)
 	}
 
-	fmt.Println("    BASE_URL     :", baseURL)
-	fmt.Println("    ES SUPABASE  :", isSupabase)
-
-	// 4) Configuración del cliente S3
+	// ---------- cliente S3 ----------
 	var s3Client *s3.Client
 
 	if isSupabase {
-		// Resolver específico para Supabase (path-style + servicio "s3")
-		supabaseResolver := s3.EndpointResolverFunc(
-			func(region string, options s3.EndpointResolverOptions) (aws.Endpoint, error) {
+		resolver := s3.EndpointResolverFunc(
+			func(region string, _ s3.EndpointResolverOptions) (aws.Endpoint, error) {
 				return aws.Endpoint{
-					URL:           endpointURL, // p.ej. https://zufjxpgxyhphoygtxqit.supabase.co/storage/v1/s3
-					PartitionID:   "aws",       // requerido por el SDK
+					URL:           endpointURL,
+					PartitionID:   "aws",
 					SigningRegion: region,
-					SigningName:   "s3", // ← clave para que la firma coincida
+					SigningName:   "s3",
 				}, nil
 			})
 
@@ -84,51 +76,47 @@ func init() {
 			context.TODO(),
 			config.WithRegion(region),
 			config.WithCredentialsProvider(
-				credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, ""),
-			),
+				credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, "")),
 		)
 		if err != nil {
-			panic(fmt.Sprintf("❌ Error al cargar configuración S3: %v", err))
+			panic(fmt.Sprintf("❌ cfg S3: %v", err))
 		}
 
-		// Cliente S3 para Supabase: path-style y resolver propio
-		s3Client = s3.NewFromConfig(cfg,
-			s3.WithEndpointResolver(supabaseResolver),
-			func(o *s3.Options) { o.UsePathStyle = true },
-		)
+		s3Client = s3.NewFromConfig(
+			cfg,
+			s3.WithEndpointResolver(resolver),
+			func(o *s3.Options) {
+				o.UsePathStyle = true
+				// ⚠️  Fuerza UNSIGNED-PAYLOAD (firma válida en Supabase)
+				o.APIOptions = append(o.APIOptions,
+					v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware)
+			})
 	} else {
-		// Cliente estándar para otros proveedores
 		cfg, err := config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithRegion(region),
-			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, "")),
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(accessEnv, secretEnv, "")),
 		)
 		if err != nil {
-			panic(fmt.Sprintf("❌ Error al cargar configuración S3: %v", err))
+			panic(fmt.Sprintf("❌ cfg S3: %v", err))
 		}
-
-		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
-			o.UsePathStyle = true
-		})
+		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) { o.UsePathStyle = true })
 	}
 
-	// 5) Inicializa el uploader
+	// ---------- uploader ----------
 	uploader = manager.NewUploader(s3Client, func(u *manager.Uploader) {
 		u.Concurrency = 1
 		u.PartSize = 5 * 1024 * 1024 // 5 MB
-		u.LeavePartsOnError = false
+		u.LeavePartsOnError = false  // 👈 evita la cabecera Content-MD5
 	})
 }
 
-// UploadPoster sube o reemplaza el póster y devuelve la URL pública.
+// UploadPoster sube el archivo y devuelve la URL pública.
 func UploadPoster(key string, file multipart.File, mime string) (string, error) {
 	if uploader == nil {
-		return "", fmt.Errorf("el servicio de almacenamiento no está configurado")
+		return "", fmt.Errorf("almacenamiento no configurado")
 	}
-
-	fmt.Println("📤 [DEBUG] Subiendo a bucket:", bucket)
-	fmt.Println("📤 [DEBUG] Key del archivo:", key)
-	fmt.Println("📤 [DEBUG] Tipo MIME:", mime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -139,29 +127,21 @@ func UploadPoster(key string, file multipart.File, mime string) (string, error) 
 		Body:        file,
 		ContentType: aws.String(mime),
 	}
-
-	// Supabase maneja permisos de manera interna
 	if !isSupabase {
 		input.ACL = types.ObjectCannedACLPublicRead
 	}
 
-	resp, err := uploader.Upload(ctx, input)
-	if err != nil {
-		fmt.Println("❌ [ERROR] Falló PutObject:", err)
-		return "", err
+	if _, err := uploader.Upload(ctx, input); err != nil {
+		return "", fmt.Errorf("error al subir póster: %w", err)
 	}
 
-	fmt.Println("✅ [DEBUG] Subida exitosa. Location:", resp.Location)
-
-	url := fmt.Sprintf("%s/%s", baseURL, key)
-	fmt.Println("✅ [DEBUG] URL pública:", url)
-	return url, nil
+	return fmt.Sprintf("%s/%s", baseURL, key), nil
 }
 
-// maskSecret oculta la mayor parte del secret para no imprimirlo completo.
-func maskSecret(secret string) string {
-	if len(secret) <= 8 {
+// maskSecret ofusca la clave al imprimir
+func maskSecret(s string) string {
+	if len(s) <= 8 {
 		return "********"
 	}
-	return secret[:4] + strings.Repeat("*", len(secret)-8) + secret[len(secret)-4:]
+	return s[:4] + strings.Repeat("*", len(s)-8) + s[len(s)-4:]
 }
