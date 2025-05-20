@@ -165,3 +165,9 @@ func UpdateAllCommentSentiments() error {
 
 	return nil
 }
+
+// DeleteAllComments elimina todos los comentarios de la base de datos
+func DeleteAllComments() error {
+	// Usar eliminación en masa para mayor eficiencia
+	return config.DB.Exec("DELETE FROM comments").Error
+}

@@ -24,6 +24,11 @@ func RegisterCommentRoutes(r *gin.Engine) {
 		// Rutas para configuración del análisis de sentimientos (sólo admin)
 		comments.GET("/settings", middlewares.AdminRequired(), controllers.GetSentimentSettings)
 		comments.POST("/settings", middlewares.AdminRequired(), controllers.UpdateSentimentSettings)
+
+		// Ruta para eliminar TODOS los comentarios (sólo admin)
+		comments.DELETE("/all", middlewares.AdminRequired(), controllers.DeleteAllComments)
+
+		comments.GET("/migrate", middlewares.AdminRequired(), controllers.RecomputeAllSentiments)
 	}
 
 	// Rutas para película-comentarios

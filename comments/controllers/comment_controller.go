@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -153,6 +154,33 @@ func UpdateAllSentiments(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sentimientos de comentarios actualizados correctamente",
+	})
+}
+
+// DELETE /api/comments/all (AdminRequired)
+func DeleteAllComments(c *gin.Context) {
+	// Verificación adicional de seguridad
+	claims, _ := c.Get("claims")
+	if claims.(*utils.Claims).Role != "admin" {
+		utils.ErrorResponse(c, http.StatusForbidden, "Solo administradores pueden ejecutar esta acción")
+		return
+	}
+
+	// Solicitar confirmación específica
+	confirmation := c.GetHeader("Confirm-Delete")
+	if confirmation != "DELETE-ALL-COMMENTS" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Se requiere confirmación explícita para eliminar todos los comentarios. Envíe el encabezado 'Confirm-Delete' con valor 'DELETE-ALL-COMMENTS'")
+		return
+	}
+
+	if err := services.DeleteAllComments(); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al eliminar los comentarios: "+err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Todos los comentarios han sido eliminados correctamente",
+		"time":    time.Now().Format(time.RFC3339),
 	})
 }
 
