@@ -18,8 +18,8 @@ const (
 
 type Comment struct {
 	ID             uint              `gorm:"primaryKey" json:"id"`
-	UserID         uint              `json:"user_id"`
-	MovieID        uint              `json:"movie_id"`
+	UserID         uint              `gorm:"uniqueIndex:idx_user_movie" json:"user_id"`
+	MovieID        uint              `gorm:"uniqueIndex:idx_user_movie" json:"movie_id"`
 	Content        string            `json:"content"`
 	Sentiment      SentimentType     `json:"sentiment"`
 	SentimentScore float64           `json:"sentiment_score"`

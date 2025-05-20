@@ -4,6 +4,7 @@ import (
 	"cine_conecta_backend/auth/utils"
 	"cine_conecta_backend/comments/services"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -84,6 +85,63 @@ func GetSentimentStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"sentiment_stats": stats,
+	})
+}
+
+// POST /api/comments/settings (AdminRequired)
+func UpdateSentimentSettings(c *gin.Context) {
+	// Solo administradores pueden modificar esta configuración
+	claims, _ := c.Get("claims")
+	if claims.(*utils.Claims).Role != "admin" {
+		utils.ErrorResponse(c, http.StatusForbidden, "Solo administradores pueden cambiar esta configuración")
+		return
+	}
+
+	// Estructura para recibir la configuración
+	var settings struct {
+		UseML     bool   `json:"use_ml"`
+		OpenAIKey string `json:"openai_key,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
+		return
+	}
+
+	// Actualizar configuraciones
+	if settings.UseML {
+		os.Setenv("USE_ML_SENTIMENT", "true")
+	} else {
+		os.Setenv("USE_ML_SENTIMENT", "false")
+	}
+
+	// Actualizar API key si se proporciona
+	if settings.OpenAIKey != "" {
+		os.Setenv("OPENAI_API_KEY", settings.OpenAIKey)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Configuración de análisis de sentimientos actualizada",
+		"use_ml":  settings.UseML,
+	})
+}
+
+// GET /api/comments/settings (AdminRequired)
+func GetSentimentSettings(c *gin.Context) {
+	// Solo administradores pueden ver esta configuración
+	claims, _ := c.Get("claims")
+	if claims.(*utils.Claims).Role != "admin" {
+		utils.ErrorResponse(c, http.StatusForbidden, "Solo administradores pueden ver esta configuración")
+		return
+	}
+
+	// Obtener configuración actual
+	useML := os.Getenv("USE_ML_SENTIMENT") == "true"
+	hasOpenAIKey := os.Getenv("OPENAI_API_KEY") != ""
+
+	c.JSON(http.StatusOK, gin.H{
+		"use_ml":         useML,
+		"has_openai_key": hasOpenAIKey,
 	})
 }
 

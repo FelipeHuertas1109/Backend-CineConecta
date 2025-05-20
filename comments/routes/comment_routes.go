@@ -20,6 +20,10 @@ func RegisterCommentRoutes(r *gin.Engine) {
 
 		// Ruta de actualización de todos los comentarios (sólo admin)
 		comments.POST("/update-sentiments", middlewares.AdminRequired(), controllers.UpdateAllSentiments)
+
+		// Rutas para configuración del análisis de sentimientos (sólo admin)
+		comments.GET("/settings", middlewares.AdminRequired(), controllers.GetSentimentSettings)
+		comments.POST("/settings", middlewares.AdminRequired(), controllers.UpdateSentimentSettings)
 	}
 
 	// Rutas para película-comentarios

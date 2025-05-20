@@ -6,6 +6,7 @@ import (
 	"cine_conecta_backend/comments/services"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,11 @@ func CreateComment(c *gin.Context) {
 	input.UserID = claims.(*utils.Claims).UserID
 
 	if err := services.CreateComment(&input); err != nil {
+		// Verificar si es el error específico de usuario que ya ha comentado
+		if strings.Contains(err.Error(), "ya ha comentado") {
+			utils.ErrorResponse(c, http.StatusConflict, err.Error())
+			return
+		}
 		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo crear el comentario")
 		return
 	}

@@ -3,11 +3,37 @@ package services
 import (
 	"cine_conecta_backend/comments/models"
 	"cine_conecta_backend/config"
+	"errors"
+	"os"
 )
 
 func CreateComment(c *models.Comment) error {
-	// Realizar análisis de sentimientos
-	sentiment, score := AnalyzeSentiment(c.Content)
+	// Verificar si el usuario ya ha comentado esta película
+	var existingComment models.Comment
+	result := config.DB.Where("user_id = ? AND movie_id = ?", c.UserID, c.MovieID).First(&existingComment)
+
+	if result.RowsAffected > 0 {
+		return errors.New("el usuario ya ha comentado esta película")
+	}
+
+	// Realizar análisis de sentimientos (con ML si está disponible)
+	// Verificar si se debe usar análisis con ML (basado en variable de entorno)
+	var sentiment models.SentimentType
+	var score float64
+	var err error
+
+	if os.Getenv("USE_ML_SENTIMENT") == "true" {
+		// Usar ML para el análisis
+		sentiment, score, err = AnalyzeSentimentWithML(c.Content)
+		if err != nil {
+			// Fallback al método tradicional
+			sentiment, score = AnalyzeSentiment(c.Content)
+		}
+	} else {
+		// Usar método tradicional
+		sentiment, score = AnalyzeSentiment(c.Content)
+	}
+
 	c.Sentiment = sentiment
 	c.SentimentScore = score
 
@@ -27,8 +53,24 @@ func GetCommentByID(id uint) (models.Comment, error) {
 }
 
 func UpdateComment(c *models.Comment) error {
-	// Realizar análisis de sentimientos al actualizar
-	sentiment, score := AnalyzeSentiment(c.Content)
+	// Realizar análisis de sentimientos (con ML si está disponible)
+	// Verificar si se debe usar análisis con ML (basado en variable de entorno)
+	var sentiment models.SentimentType
+	var score float64
+	var err error
+
+	if os.Getenv("USE_ML_SENTIMENT") == "true" {
+		// Usar ML para el análisis
+		sentiment, score, err = AnalyzeSentimentWithML(c.Content)
+		if err != nil {
+			// Fallback al método tradicional
+			sentiment, score = AnalyzeSentiment(c.Content)
+		}
+	} else {
+		// Usar método tradicional
+		sentiment, score = AnalyzeSentiment(c.Content)
+	}
+
 	c.Sentiment = sentiment
 	c.SentimentScore = score
 
@@ -93,9 +135,26 @@ func UpdateAllCommentSentiments() error {
 		return err
 	}
 
+	useML := os.Getenv("USE_ML_SENTIMENT") == "true"
+
 	// Actualizar cada comentario con el nuevo análisis de sentimientos
 	for _, comment := range comments {
-		sentiment, score := AnalyzeSentiment(comment.Content)
+		var sentiment models.SentimentType
+		var score float64
+		var err error
+
+		if useML {
+			// Usar ML para el análisis
+			sentiment, score, err = AnalyzeSentimentWithML(comment.Content)
+			if err != nil {
+				// Fallback al método tradicional
+				sentiment, score = AnalyzeSentiment(comment.Content)
+			}
+		} else {
+			// Usar método tradicional
+			sentiment, score = AnalyzeSentiment(comment.Content)
+		}
+
 		comment.Sentiment = sentiment
 		comment.SentimentScore = score
 

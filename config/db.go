@@ -42,5 +42,9 @@ func ConnectDB() {
 		&movieModels.Movie{},
 		&commentModels.Comment{},
 		&commentModels.RecommendationDataset{})
+
+	// Crear índice único para asegurar que un usuario solo pueda comentar una vez por película
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_comments_user_movie ON comments (user_id, movie_id)")
+
 	DB = db
 }
