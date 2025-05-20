@@ -69,19 +69,19 @@ func AnalyzeSentiment(content string) (models.SentimentType, float64) {
 		fmt.Println("↓ Analyze:", content)
 	}
 
-	// ① HuggingFace
+	// ① Intento con HuggingFace
 	if score, err := SentimentScoreML(content); err == nil && score > 0 {
 		if debug {
 			fmt.Println("→ vía HF")
 		}
 		return scoreToType(score), score
 	}
-	if debug {
-		fmt.Println("→ fallback heurístico")
-	}
 
-	// ② Heurístico
-	return analyzeHeuristic(content)
+	// ② Si HF falla → heurístico local
+	if debug {
+		fmt.Println("⚠️  HF falló, se usa heurístico")
+	}
+	return analyzeHeuristic(content) // ← aquí el cambio
 }
 
 /*
