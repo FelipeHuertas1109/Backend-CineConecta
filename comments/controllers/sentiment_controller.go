@@ -273,3 +273,34 @@ func GetPublicMovieCommentsByName(c *gin.Context) {
 
 	c.JSON(http.StatusOK, enhancedComments)
 }
+
+// GetPublicMovieSentimentByName obtiene el sentimiento de una película por su nombre sin requerir autenticación
+func GetPublicMovieSentimentByName(c *gin.Context) {
+	movieName := c.Param("name")
+	if movieName == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de película inválido")
+		return
+	}
+
+	sentiment, score, err := services.GetMovieSentimentByName(movieName)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener sentimiento")
+		return
+	}
+
+	// Mapear el tipo de sentimiento a un texto descriptivo
+	sentimentText := "neutro"
+	if sentiment == "positive" {
+		sentimentText = "positivo"
+	} else if sentiment == "negative" {
+		sentimentText = "negativo"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"movie_name":     movieName,
+		"sentiment":      sentiment,
+		"sentiment_text": sentimentText,
+		"rating":         score,
+		"rating_text":    getPuntuacionTexto(score),
+	})
+}

@@ -4,6 +4,7 @@ package services
 import (
 	"cine_conecta_backend/comments/models"
 	"cine_conecta_backend/config"
+	movieModels "cine_conecta_backend/movies/models"
 	"fmt"
 	"math"
 	"os"
@@ -51,7 +52,7 @@ var emphasisWords = []string{
 	"sumamente", "increíblemente", "tremendamente", "excepcionalmente",
 }
 
-// negativas “fuertes” (peso doble)
+// negativas "fuertes" (peso doble)
 var strongNeg = []string{
 	"basura", "desastre", "asco", "infame", "detestable", "nefasta",
 	"espantoso", "espantosa", "abominable", "horripilante",
@@ -173,4 +174,47 @@ func GetMovieSentiment(movieID uint) (models.SentimentType, float64, error) {
 	}
 	avg := sum / float64(len(comments))
 	return scoreToType(avg), avg, nil
+}
+
+// GetMovieSentimentByName obtiene el sentimiento promedio para una película por su nombre
+func GetMovieSentimentByName(movieName string) (models.SentimentType, float64, error) {
+	// Primero buscamos la película por nombre
+	var movieIDs []uint
+	err := config.DB.Model(&movieModels.Movie{}).
+		Where("LOWER(title) LIKE LOWER(?)", "%"+movieName+"%").
+		Pluck("id", &movieIDs).Error
+
+	if err != nil {
+		return models.SentimentNeutral, 3.0, err
+	}
+
+	if len(movieIDs) == 0 {
+		return models.SentimentNeutral, 3.0, fmt.Errorf("no se encontraron películas con el nombre: %s", movieName)
+	}
+
+	// Si encontramos varias películas, usamos la primera que coincida exactamente o la primera en la lista
+	var selectedMovieID uint
+	var exactMatch bool
+
+	// Intentar encontrar una coincidencia exacta
+	var movies []movieModels.Movie
+	if err := config.DB.Where("id IN ?", movieIDs).Find(&movies).Error; err != nil {
+		return models.SentimentNeutral, 3.0, err
+	}
+
+	for _, movie := range movies {
+		if strings.EqualFold(movie.Title, movieName) {
+			selectedMovieID = movie.ID
+			exactMatch = true
+			break
+		}
+	}
+
+	// Si no hay coincidencia exacta, usar el primer resultado
+	if !exactMatch && len(movieIDs) > 0 {
+		selectedMovieID = movieIDs[0]
+	}
+
+	// Ahora obtenemos el sentimiento para la película seleccionada
+	return GetMovieSentiment(selectedMovieID)
 }
