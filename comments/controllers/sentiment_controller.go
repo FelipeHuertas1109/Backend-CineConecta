@@ -235,3 +235,41 @@ func GetPublicMovieSentiment(c *gin.Context) {
 		"rating_text":    getPuntuacionTexto(score),
 	})
 }
+
+// GetPublicMovieCommentsByName obtiene todos los comentarios de una película por su nombre sin requerir autenticación
+func GetPublicMovieCommentsByName(c *gin.Context) {
+	movieName := c.Param("name")
+	if movieName == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de película inválido")
+		return
+	}
+
+	comments, err := services.GetCommentsByMovieName(movieName)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener comentarios")
+		return
+	}
+
+	// Añadir información enriquecida de sentimiento para cada comentario
+	// y limitar información del usuario a solo ID y nombre
+	var enhancedComments []gin.H
+	for _, comment := range comments {
+		enhancedComments = append(enhancedComments, gin.H{
+			"id":             comment.ID,
+			"user_id":        comment.UserID,
+			"movie_id":       comment.MovieID,
+			"content":        comment.Content,
+			"created_at":     comment.CreatedAt,
+			"sentiment":      comment.Sentiment,
+			"sentiment_text": getSentimentText(string(comment.Sentiment)),
+			"rating":         comment.SentimentScore,
+			"rating_text":    getPuntuacionTexto(comment.SentimentScore),
+			"user": gin.H{
+				"id":   comment.User.ID,
+				"name": comment.User.Name,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, enhancedComments)
+}
