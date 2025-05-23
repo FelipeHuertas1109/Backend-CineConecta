@@ -1,17 +1,23 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	handler "cine_conecta_backend/api"
+	"cine_conecta_backend/comments/services"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Procesar flags de línea de comandos
+	checkHFToken := flag.Bool("check-hf", false, "Verificar token de HuggingFace")
+	flag.Parse()
+
 	// Mostrar directorio de trabajo actual
 	dir, err := os.Getwd()
 	if err != nil {
@@ -49,6 +55,19 @@ func main() {
 				log.Printf("✅ Variable DATABASE_URL encontrada (primeros 20 caracteres): %s...", dbURL[:min(len(dbURL), 20)])
 			}
 		}
+	}
+
+	// Si se solicitó verificar el token de HuggingFace
+	if *checkHFToken {
+		log.Println("Verificando token de HuggingFace...")
+		if services.VerifyHFToken() {
+			log.Println("✅ Token de HuggingFace verificado correctamente")
+			os.Exit(0)
+		} else {
+			log.Println("❌ Error en la verificación del token de HuggingFace")
+			os.Exit(1)
+		}
+		return // No continuar con el servidor
 	}
 
 	// Conexión a la base de datos

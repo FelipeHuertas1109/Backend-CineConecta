@@ -14,17 +14,31 @@ import (
 
 // POST /api/comments    (AuthRequired)
 func CreateComment(c *gin.Context) {
-	var input models.Comment
+	var input models.CommentRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
 		return
 	}
 
-	// Obtener userID del token, si quieres forzar que sólo usuarios logueados comenten
+	// Obtener userID del token
 	claims, _ := c.Get("claims")
-	input.UserID = claims.(*utils.Claims).UserID
+	userID := claims.(*utils.Claims).UserID
 
-	if err := services.CreateComment(&input); err != nil {
+	// Buscar la película por nombre
+	movie, err := services.FindMovieByName(input.MovieName)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// Crear el comentario con el ID de la película encontrada
+	comment := &models.Comment{
+		UserID:  userID,
+		MovieID: movie.ID,
+		Content: input.Content,
+	}
+
+	if err := services.CreateComment(comment); err != nil {
 		// Verificar si es el error específico de usuario que ya ha comentado
 		if strings.Contains(err.Error(), "ya ha comentado") {
 			utils.ErrorResponse(c, http.StatusConflict, err.Error())
@@ -35,16 +49,20 @@ func CreateComment(c *gin.Context) {
 	}
 
 	// Generar texto descriptivo para la puntuación
-	ratingText := getRatingDescription(input.SentimentScore)
+	ratingText := getRatingDescription(comment.SentimentScore)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Comentario creado correctamente",
-		"comment": input,
+		"comment": comment,
+		"movie": gin.H{
+			"id":    movie.ID,
+			"title": movie.Title,
+		},
 		"sentiment_info": gin.H{
-			"rating":         input.SentimentScore,
+			"rating":         comment.SentimentScore,
 			"description":    ratingText,
-			"sentiment":      input.Sentiment,
-			"sentiment_text": getSentimentText(string(input.Sentiment)),
+			"sentiment":      comment.Sentiment,
+			"sentiment_text": getSentimentText(string(comment.Sentiment)),
 		},
 	})
 }
@@ -166,12 +184,7 @@ func DeleteAllComments(c *gin.Context) {
 		return
 	}
 
-	// Solicitar confirmación específica
-	confirmation := c.GetHeader("Confirm-Delete")
-	if confirmation != "DELETE-ALL-COMMENTS" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Se requiere confirmación explícita para eliminar todos los comentarios. Envíe el encabezado 'Confirm-Delete' con valor 'DELETE-ALL-COMMENTS'")
-		return
-	}
+	// Ya no se requiere confirmación específica, solo ser administrador es suficiente
 
 	if err := services.DeleteAllComments(); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al eliminar los comentarios: "+err.Error())

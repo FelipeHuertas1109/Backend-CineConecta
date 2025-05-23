@@ -5,7 +5,10 @@ import (
 	"cine_conecta_backend/config"
 	movieModels "cine_conecta_backend/movies/models"
 	"errors"
+	"fmt"
+	"log"
 	"os"
+	"strings"
 )
 
 func CreateComment(c *models.Comment) error {
@@ -198,4 +201,45 @@ func UpdateAllCommentSentiments() error {
 func DeleteAllComments() error {
 	// Usar eliminación en masa para mayor eficiencia
 	return config.DB.Exec("DELETE FROM comments").Error
+}
+
+// FindMovieByName busca una película por nombre, primero buscando coincidencia exacta
+// y luego por coincidencia parcial si no se encuentra
+func FindMovieByName(movieName string) (movieModels.Movie, error) {
+	var movie movieModels.Movie
+
+	// Limpiar el nombre de la película
+	cleanName := strings.TrimSpace(movieName)
+	if cleanName == "" {
+		return movie, errors.New("el nombre de la película no puede estar vacío")
+	}
+
+	log.Printf("🔍 Buscando película: '%s'", cleanName)
+
+	// 1. Intentar coincidencia exacta (ignorando mayúsculas/minúsculas)
+	exactResult := config.DB.Where("LOWER(title) = LOWER(?)", cleanName).First(&movie)
+	if exactResult.Error == nil {
+		log.Printf("✅ Película encontrada por coincidencia exacta: ID=%d, Título='%s'", movie.ID, movie.Title)
+		return movie, nil
+	}
+
+	// 2. Intentar coincidencia parcial
+	partialResult := config.DB.Where("LOWER(title) LIKE LOWER(?)", "%"+cleanName+"%").First(&movie)
+	if partialResult.Error == nil {
+		log.Printf("✅ Película encontrada por coincidencia parcial: ID=%d, Título='%s'", movie.ID, movie.Title)
+		return movie, nil
+	}
+
+	// 3. Mostrar todas las películas disponibles para depuración
+	var allMovies []movieModels.Movie
+	config.DB.Select("id, title").Find(&allMovies)
+	var titles []string
+	for _, m := range allMovies {
+		titles = append(titles, fmt.Sprintf("%d: %s", m.ID, m.Title))
+	}
+	log.Printf("📋 Películas disponibles: %s", strings.Join(titles, ", "))
+
+	// No se encontró ninguna película
+	log.Printf("❌ No se encontró ninguna película con el nombre: '%s'", cleanName)
+	return movie, fmt.Errorf("no se encontró ninguna película con el nombre: '%s'", cleanName)
 }
