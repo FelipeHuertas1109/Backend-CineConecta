@@ -170,3 +170,68 @@ func getPuntuacionTexto(score float64) string {
 		return "Pésima"
 	}
 }
+
+// GetPublicMovieComments obtiene todos los comentarios de una película sin requerir autenticación
+func GetPublicMovieComments(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID de película inválido")
+		return
+	}
+
+	comments, err := services.GetCommentsByMovie(uint(id))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener comentarios")
+		return
+	}
+
+	// Añadir información enriquecida de sentimiento para cada comentario
+	var enhancedComments []gin.H
+	for _, comment := range comments {
+		enhancedComments = append(enhancedComments, gin.H{
+			"id":             comment.ID,
+			"user_id":        comment.UserID,
+			"movie_id":       comment.MovieID,
+			"content":        comment.Content,
+			"created_at":     comment.CreatedAt,
+			"sentiment":      comment.Sentiment,
+			"sentiment_text": getSentimentText(string(comment.Sentiment)),
+			"rating":         comment.SentimentScore,
+			"rating_text":    getPuntuacionTexto(comment.SentimentScore),
+			"user":           comment.User,
+		})
+	}
+
+	c.JSON(http.StatusOK, enhancedComments)
+}
+
+// GetPublicMovieSentiment obtiene el sentimiento de una película sin requerir autenticación
+func GetPublicMovieSentiment(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID de película inválido")
+		return
+	}
+
+	sentiment, score, err := services.GetMovieSentiment(uint(id))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener sentimiento")
+		return
+	}
+
+	// Mapear el tipo de sentimiento a un texto descriptivo
+	sentimentText := "neutro"
+	if sentiment == "positive" {
+		sentimentText = "positivo"
+	} else if sentiment == "negative" {
+		sentimentText = "negativo"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"movie_id":       id,
+		"sentiment":      sentiment,
+		"sentiment_text": sentimentText,
+		"rating":         score,
+		"rating_text":    getPuntuacionTexto(score),
+	})
+}
