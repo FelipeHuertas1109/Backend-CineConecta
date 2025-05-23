@@ -35,7 +35,7 @@ func RegisterCommentRoutes(r *gin.Engine) {
 	movies := r.Group("/api/movies")
 	{
 		// Rutas públicas sin autenticación
-		movies.GET("/name/:name/public-comments", controllers.GetPublicMovieCommentsByName)
+		movies.GET("/:name/public-comments", controllers.GetPublicMovieCommentsByName)
 		movies.GET("/:id/public-sentiment", controllers.GetPublicMovieSentiment)
 
 		// Rutas protegidas que requieren autenticación
