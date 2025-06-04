@@ -51,7 +51,7 @@ var emphasisWords = []string{
 	"sumamente", "increíblemente", "tremendamente", "excepcionalmente",
 }
 
-// negativas “fuertes” (peso doble)
+// negativas "fuertes" (peso doble)
 var strongNeg = []string{
 	"basura", "desastre", "asco", "infame", "detestable", "nefasta",
 	"espantoso", "espantosa", "abominable", "horripilante",
@@ -67,21 +67,11 @@ func AnalyzeSentiment(content string) (models.SentimentType, float64) {
 	debug := os.Getenv("SENTIMENT_DEBUG") == "true"
 	if debug {
 		fmt.Println("↓ Analyze:", content)
+		fmt.Println("⚠️  Usando análisis heurístico")
 	}
 
-	// ① Intento con HuggingFace
-	if score, err := SentimentScoreML(content); err == nil && score > 0 {
-		if debug {
-			fmt.Println("→ vía HF")
-		}
-		return scoreToType(score), score
-	}
-
-	// ② Si HF falla → heurístico local
-	if debug {
-		fmt.Println("⚠️  HF falló, se usa heurístico")
-	}
-	return analyzeHeuristic(content) // ← aquí el cambio
+	// Usar directamente el análisis heurístico
+	return analyzeHeuristic(content)
 }
 
 /*

@@ -1,17 +1,22 @@
 package services
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
-	"os"
-	"strings"
+	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"cine_conecta_backend/comments/models"
 	"cine_conecta_backend/config"
-
-	openai "github.com/sashabaranov/go-openai"
 )
+
+const cineConectaMLURL = "https://cine-conecta-ml.onrender.com/api/score/"
+
+type ScoreResponse struct {
+	Score float64 `json:"score"`
+}
 
 // SentimentAnalysisResult estructura para parsear el resultado del análisis
 type SentimentAnalysisResult struct {
@@ -20,82 +25,67 @@ type SentimentAnalysisResult struct {
 	Reason    string               `json:"reason"`
 }
 
-// AnalyzeSentimentWithML analiza sentimientos usando OpenAI
-func AnalyzeSentimentWithML(content string) (models.SentimentType, float64, error) {
-	// Usar el método léxico tradicional como fallback
-	if os.Getenv("OPENAI_API_KEY") == "" || len(content) < 10 {
-		sentimentType, score := AnalyzeSentiment(content)
-		return sentimentType, score, nil
-	}
+// AnalyzeSentimentWithML devuelve un rating usando la API de Cine Conecta ML
+func AnalyzeSentimentWithML(text string) (models.SentimentType, float64, error) {
+	fmt.Println("[DEBUG-ML] Iniciando análisis de sentimiento con API externa")
 
-	// Crear cliente OpenAI
-	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// Preparar sistema y mensaje del usuario
-	systemMessage := "Eres un sistema especializado en análisis de sentimientos para comentarios de películas en español."
-	userMessage := `Analiza el siguiente comentario y clasifícalo como 'positive', 'neutral' o 'negative'. 
-Además, asigna una puntuación de 1 a 10 (donde 1 es extremadamente negativo y 10 es extremadamente positivo).
-Responde en formato JSON con los campos 'sentiment', 'score' y 'reason'.
-
-Comentario: ` + content
-
-	// Llamar a la API
-	resp, err := client.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: systemMessage,
-				},
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: userMessage,
-				},
-			},
-			MaxTokens:   150,
-			Temperature: 0.0, // Queremos respuestas consistentes
-		},
-	)
-
+	// Preparar el cuerpo de la solicitud
+	requestBody, err := json.Marshal(map[string]string{
+		"text": text,
+	})
 	if err != nil {
-		// Fallback al método léxico tradicional en caso de error
-		sentimentType, score := AnalyzeSentiment(content)
-		return sentimentType, score, nil
+		fmt.Printf("[DEBUG-ML] Error al preparar solicitud JSON: %v\n", err)
+		return models.SentimentNeutral, 3.0, fmt.Errorf("error al preparar solicitud: %w", err)
 	}
 
-	// Extraer el JSON de la respuesta
-	jsonContent := resp.Choices[0].Message.Content
-	jsonContent = strings.TrimSpace(jsonContent)
+	// Crear la solicitud HTTP
+	fmt.Printf("[DEBUG-ML] Enviando solicitud a: %s\n", cineConectaMLURL)
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("POST", cineConectaMLURL, bytes.NewBuffer(requestBody))
+	if err != nil {
+		fmt.Printf("[DEBUG-ML] Error al crear solicitud HTTP: %v\n", err)
+		return models.SentimentNeutral, 3.0, fmt.Errorf("error al crear solicitud: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-	// Si la respuesta no comienza con '{', buscar el primer '{'
-	if !strings.HasPrefix(jsonContent, "{") {
-		startBrace := strings.Index(jsonContent, "{")
-		if startBrace != -1 {
-			jsonContent = jsonContent[startBrace:]
-		}
+	// Ejecutar la solicitud
+	fmt.Println("[DEBUG-ML] Ejecutando solicitud HTTP...")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("[DEBUG-ML] Error en la solicitud HTTP: %v\n", err)
+		return models.SentimentNeutral, 3.0, err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("[DEBUG-ML] Respuesta recibida: HTTP %d %s\n", resp.StatusCode, resp.Status)
+
+	// Leer el cuerpo de la respuesta para depuración
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Printf("[DEBUG-ML] Cuerpo de la respuesta: %s\n", string(respBody))
+
+	// Crear un nuevo reader con el cuerpo leído para decodificarlo después
+	resp.Body = io.NopCloser(bytes.NewBuffer(respBody))
+
+	// Verificar el código de estado
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("[DEBUG-ML] Error en la API: código %d\n", resp.StatusCode)
+		return models.SentimentNeutral, 3.0, fmt.Errorf("API respondió con código %d", resp.StatusCode)
 	}
 
-	// Si la respuesta no termina con '}', buscar el último '}'
-	if !strings.HasSuffix(jsonContent, "}") {
-		endBrace := strings.LastIndex(jsonContent, "}")
-		if endBrace != -1 {
-			jsonContent = jsonContent[:endBrace+1]
-		}
+	// Decodificar la respuesta
+	var scoreResp ScoreResponse
+	if err := json.NewDecoder(resp.Body).Decode(&scoreResp); err != nil {
+		fmt.Printf("[DEBUG-ML] Error al decodificar respuesta JSON: %v\n", err)
+		return models.SentimentNeutral, 3.0, fmt.Errorf("error al decodificar respuesta: %w", err)
 	}
 
-	// Parsear el resultado
-	var result SentimentAnalysisResult
-	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
-		// Fallback al método léxico tradicional en caso de error
-		sentimentType, score := AnalyzeSentiment(content)
-		return sentimentType, score, nil
-	}
+	fmt.Printf("[DEBUG-ML] Score obtenido: %.2f\n", scoreResp.Score)
 
-	return result.Sentiment, result.Score, nil
+	// Convertir el score a un tipo de sentimiento
+	sentimentType := scoreToType(scoreResp.Score)
+	fmt.Printf("[DEBUG-ML] Tipo de sentimiento determinado: %s\n", sentimentType)
+
+	return sentimentType, scoreResp.Score, nil
 }
 
 // GetMovieSentimentWithML obtiene el sentimiento promedio para una película usando ML cuando es posible

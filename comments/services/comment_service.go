@@ -4,40 +4,48 @@ import (
 	"cine_conecta_backend/comments/models"
 	"cine_conecta_backend/config"
 	"errors"
+	"fmt"
 	"os"
 )
 
 func CreateComment(c *models.Comment) error {
+	fmt.Printf("[DEBUG-SERVICE] Creando comentario: UserID=%d, MovieID=%d, Content=%s\n", c.UserID, c.MovieID, c.Content)
+
 	// Verificar si el usuario ya ha comentado esta película
 	var existingComment models.Comment
 	result := config.DB.Where("user_id = ? AND movie_id = ?", c.UserID, c.MovieID).First(&existingComment)
 
 	if result.RowsAffected > 0 {
+		fmt.Printf("[DEBUG-SERVICE] El usuario %d ya ha comentado la película %d\n", c.UserID, c.MovieID)
 		return errors.New("el usuario ya ha comentado esta película")
 	}
 
-	// Realizar análisis de sentimientos (con ML si está disponible)
-	// Verificar si se debe usar análisis con ML (basado en variable de entorno)
-	var sentiment models.SentimentType
-	var score float64
-	var err error
-
-	if os.Getenv("USE_ML_SENTIMENT") == "true" {
-		// Usar ML para el análisis
-		sentiment, score, err = AnalyzeSentimentWithML(c.Content)
-		if err != nil {
-			// Fallback al método tradicional
-			sentiment, score = AnalyzeSentiment(c.Content)
-		}
-	} else {
-		// Usar método tradicional
+	// Usar la API de Cine Conecta ML para el análisis de sentimientos
+	fmt.Printf("[DEBUG-SERVICE] Analizando sentimiento con API para: %s\n", c.Content)
+	sentiment, score, err := AnalyzeSentimentWithML(c.Content)
+	if err != nil {
+		// Si hay un error, registrarlo pero continuar con el método tradicional
+		fmt.Printf("[DEBUG-SERVICE] Error al analizar sentimiento con API: %v\n", err)
+		// Fallback al método tradicional
+		fmt.Println("[DEBUG-SERVICE] Usando método heurístico como fallback")
 		sentiment, score = AnalyzeSentiment(c.Content)
+	} else {
+		fmt.Printf("[DEBUG-SERVICE] Sentimiento obtenido de API: %s, Score: %.2f\n", sentiment, score)
 	}
 
 	c.Sentiment = sentiment
 	c.SentimentScore = score
 
-	return config.DB.Create(c).Error
+	// Crear el comentario en la base de datos
+	fmt.Println("[DEBUG-SERVICE] Guardando comentario en la base de datos")
+	err = config.DB.Create(c).Error
+	if err != nil {
+		fmt.Printf("[DEBUG-SERVICE] Error al guardar en la base de datos: %v\n", err)
+		return fmt.Errorf("error al guardar en la base de datos: %w", err)
+	}
+
+	fmt.Printf("[DEBUG-SERVICE] Comentario guardado exitosamente con ID: %d\n", c.ID)
+	return nil
 }
 
 func GetComments() ([]models.Comment, error) {
@@ -53,21 +61,14 @@ func GetCommentByID(id uint) (models.Comment, error) {
 }
 
 func UpdateComment(c *models.Comment) error {
-	// Realizar análisis de sentimientos (con ML si está disponible)
-	// Verificar si se debe usar análisis con ML (basado en variable de entorno)
-	var sentiment models.SentimentType
-	var score float64
-	var err error
-
-	if os.Getenv("USE_ML_SENTIMENT") == "true" {
-		// Usar ML para el análisis
-		sentiment, score, err = AnalyzeSentimentWithML(c.Content)
-		if err != nil {
-			// Fallback al método tradicional
-			sentiment, score = AnalyzeSentiment(c.Content)
+	// Usar la API de Cine Conecta ML para el análisis de sentimientos
+	sentiment, score, err := AnalyzeSentimentWithML(c.Content)
+	if err != nil {
+		// Si hay un error, registrarlo pero continuar con el método tradicional
+		if os.Getenv("SENTIMENT_DEBUG") == "true" {
+			fmt.Printf("[ERROR] Error al analizar sentimiento con API: %v\n", err)
 		}
-	} else {
-		// Usar método tradicional
+		// Fallback al método tradicional
 		sentiment, score = AnalyzeSentiment(c.Content)
 	}
 
@@ -135,23 +136,16 @@ func UpdateAllCommentSentiments() error {
 		return err
 	}
 
-	useML := os.Getenv("USE_ML_SENTIMENT") == "true"
-
 	// Actualizar cada comentario con el nuevo análisis de sentimientos
 	for _, comment := range comments {
-		var sentiment models.SentimentType
-		var score float64
-		var err error
-
-		if useML {
-			// Usar ML para el análisis
-			sentiment, score, err = AnalyzeSentimentWithML(comment.Content)
-			if err != nil {
-				// Fallback al método tradicional
-				sentiment, score = AnalyzeSentiment(comment.Content)
+		// Usar la API de Cine Conecta ML para el análisis de sentimientos
+		sentiment, score, err := AnalyzeSentimentWithML(comment.Content)
+		if err != nil {
+			// Si hay un error, registrarlo pero continuar con el método tradicional
+			if os.Getenv("SENTIMENT_DEBUG") == "true" {
+				fmt.Printf("[ERROR] Error al analizar sentimiento con API para comentario %d: %v\n", comment.ID, err)
 			}
-		} else {
-			// Usar método tradicional
+			// Fallback al método tradicional
 			sentiment, score = AnalyzeSentiment(comment.Content)
 		}
 

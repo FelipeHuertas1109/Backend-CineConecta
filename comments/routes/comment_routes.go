@@ -13,6 +13,12 @@ func RegisterCommentRoutes(r *gin.Engine) {
 		comments.GET("/", middlewares.AuthRequired(), controllers.GetComments)
 		comments.GET("/:id", middlewares.AuthRequired(), controllers.GetComment)
 
+		// Nueva ruta para listar películas disponibles (sin autenticación para facilitar la depuración)
+		comments.GET("/available-movies", controllers.ListAvailableMovies)
+
+		// Nueva ruta para verificar si una película existe
+		comments.GET("/check-movie/:id", controllers.CheckMovieExists)
+
 		// Sólo usuarios logueados pueden crear/editar/borrar sus comentarios
 		comments.POST("/", middlewares.AuthRequired(), controllers.CreateComment)
 		comments.PUT("/:id", middlewares.AuthRequired(), controllers.UpdateComment)
