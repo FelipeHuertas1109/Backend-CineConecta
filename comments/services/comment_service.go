@@ -3,6 +3,7 @@ package services
 import (
 	"cine_conecta_backend/comments/models"
 	"cine_conecta_backend/config"
+	movieModels "cine_conecta_backend/movies/models"
 	"errors"
 	"fmt"
 	"os"
@@ -88,6 +89,33 @@ func GetCommentsByMovie(movieID uint) ([]models.Comment, error) {
 	err := config.DB.Where("movie_id = ?", movieID).
 		Preload("User").
 		Find(&comments).Error
+	return comments, err
+}
+
+// GetCommentsByMovieName obtiene todos los comentarios de una película por su nombre
+func GetCommentsByMovieName(movieName string) ([]models.Comment, error) {
+	var comments []models.Comment
+
+	// Primero buscamos la película por nombre
+	var movieIDs []uint
+	err := config.DB.Model(&movieModels.Movie{}).
+		Where("LOWER(title) LIKE LOWER(?)", "%"+movieName+"%").
+		Pluck("id", &movieIDs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(movieIDs) == 0 {
+		return []models.Comment{}, nil
+	}
+
+	// Luego buscamos los comentarios para esas películas
+	err = config.DB.Where("movie_id IN ?", movieIDs).
+		Preload("User").
+		Preload("Movie").
+		Find(&comments).Error
+
 	return comments, err
 }
 

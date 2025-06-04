@@ -37,16 +37,20 @@ func RegisterCommentRoutes(r *gin.Engine) {
 		comments.GET("/migrate", middlewares.AdminRequired(), controllers.RecomputeAllSentiments)
 	}
 
-	// Rutas para película-comentarios
-	movies := r.Group("/api/movies")
+	// Rutas para película-comentarios por nombre
+	moviesByName := r.Group("/api/movies")
 	{
 		// Rutas públicas sin autenticación
-		movies.GET("/:id/public-comments", controllers.GetPublicMovieComments)
-		movies.GET("/:id/public-sentiment", controllers.GetPublicMovieSentiment)
+		moviesByName.GET("/public-comments/:name", controllers.GetPublicMovieCommentsByName)
+		moviesByName.GET("/public-sentiment/:name", controllers.GetPublicMovieSentimentByName)
+	}
 
+	// Rutas para película-comentarios por ID (protegidas)
+	moviesById := r.Group("/api/movies-by-id")
+	{
 		// Rutas protegidas que requieren autenticación
-		movies.GET("/:id/comments", middlewares.AuthRequired(), controllers.GetMovieComments)
-		movies.GET("/:id/sentiment", middlewares.AuthRequired(), controllers.GetMovieSentiment)
+		moviesById.GET("/:id/comments", middlewares.AuthRequired(), controllers.GetMovieComments)
+		moviesById.GET("/:id/sentiment", middlewares.AuthRequired(), controllers.GetMovieSentiment)
 	}
 
 	// Rutas para usuario-comentarios
@@ -54,7 +58,6 @@ func RegisterCommentRoutes(r *gin.Engine) {
 	{
 		users.GET("/:id/comments", middlewares.AuthRequired(), controllers.GetUserComments)
 		users.GET("/:id/recommendations", middlewares.AuthRequired(), controllers.GetUserRecommendations)
-
 	}
 
 	// Rutas para estadísticas (sólo admin)

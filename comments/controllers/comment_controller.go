@@ -16,7 +16,7 @@ import (
 
 // POST /api/comments    (AuthRequired)
 func CreateComment(c *gin.Context) {
-	var input models.Comment
+	var input models.CommentRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		fmt.Printf("[DEBUG-CONTROLLER] Error al vincular JSON: %v\n", err)
 		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
@@ -61,6 +61,13 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
+	// Obtener información de la película para incluirla en la respuesta
+	var movieTitle string
+	if err := config.DB.Table("movies").Select("title").Where("id = ?", input.MovieID).Scan(&movieTitle).Error; err != nil {
+		fmt.Printf("[DEBUG-CONTROLLER] Error al obtener título de la película: %v\n", err)
+		movieTitle = "Desconocido"
+	}
+
 	// Generar texto descriptivo para la puntuación
 	ratingText := getRatingDescription(input.SentimentScore)
 	fmt.Printf("[DEBUG-CONTROLLER] Comentario creado exitosamente: ID=%d, Score=%.2f\n", input.ID, input.SentimentScore)
@@ -69,10 +76,10 @@ func CreateComment(c *gin.Context) {
 		"message": "Comentario creado correctamente",
 		"comment": input,
 		"sentiment_info": gin.H{
-			"rating":         input.SentimentScore,
+			"rating":         comment.SentimentScore,
 			"description":    ratingText,
-			"sentiment":      input.Sentiment,
-			"sentiment_text": getSentimentText(string(input.Sentiment)),
+			"sentiment":      comment.Sentiment,
+			"sentiment_text": getSentimentText(string(comment.Sentiment)),
 		},
 	})
 }
@@ -194,12 +201,7 @@ func DeleteAllComments(c *gin.Context) {
 		return
 	}
 
-	// Solicitar confirmación específica
-	confirmation := c.GetHeader("Confirm-Delete")
-	if confirmation != "DELETE-ALL-COMMENTS" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Se requiere confirmación explícita para eliminar todos los comentarios. Envíe el encabezado 'Confirm-Delete' con valor 'DELETE-ALL-COMMENTS'")
-		return
-	}
+	// Ya no se requiere confirmación específica, solo ser administrador es suficiente
 
 	if err := services.DeleteAllComments(); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al eliminar los comentarios: "+err.Error())

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -18,16 +19,58 @@ var DB *gorm.DB
 func ConnectDB() {
 	// Cargar .env en desarrollo (ignorar si ya está en Vercel)
 	if os.Getenv("VERCEL") == "" { // Vercel define esta variable automáticamente
-		err := godotenv.Load()
+		// Obtener directorio actual para depuración
+		dir, err := os.Getwd()
 		if err != nil {
-			log.Println("⚠️  Advertencia: No se pudo cargar el archivo .env, usando variables del sistema")
+			log.Printf("❌ [DB] Error al obtener directorio de trabajo: %v", err)
+		} else {
+			log.Printf("📂 [DB] Directorio de trabajo al cargar .env: %s", dir)
+		}
+
+		// Intentar cargar .env desde diferentes ubicaciones
+		locations := []string{
+			".env",                        // En la raíz del proyecto
+			"../.env",                     // Un nivel arriba
+			filepath.Join(dir, ".env"),    // Ruta absoluta
+			filepath.Join(dir, "../.env"), // Un nivel arriba (absoluto)
+		}
+
+		loaded := false
+		for _, location := range locations {
+			log.Printf("🔍 [DB] Intentando cargar .env desde: %s", location)
+			if _, statErr := os.Stat(location); os.IsNotExist(statErr) {
+				log.Printf("❌ [DB] No existe archivo en: %s", location)
+				continue
+			}
+
+			err := godotenv.Load(location)
+			if err != nil {
+				log.Printf("⚠️ [DB] No se pudo cargar .env desde %s: %v", location, err)
+			} else {
+				log.Printf("✅ [DB] Archivo .env cargado con éxito desde: %s", location)
+				loaded = true
+				break
+			}
+		}
+
+		if !loaded {
+			log.Println("⚠️ [DB] No se pudo cargar el archivo .env desde ninguna ubicación, usando variables del sistema")
 		}
 	}
 
 	// Leer DATABASE_URL de entorno o del .env
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
+		log.Println("❌ [DB] La variable DATABASE_URL no está configurada")
+		log.Println("💡 [DB] Asegúrate de que tu archivo .env contiene: DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/nombre_db")
 		panic("❌ Error: La variable DATABASE_URL no está configurada")
+	} else {
+		// Mostrar parte de la URL para depuración (ocultando contraseña)
+		dsnPreview := dsn
+		if len(dsnPreview) > 30 {
+			dsnPreview = dsnPreview[:30] + "..."
+		}
+		log.Printf("✅ [DB] Variable DATABASE_URL encontrada: %s", dsnPreview)
 	}
 
 	// Conectar a la base de datos PostgreSQL

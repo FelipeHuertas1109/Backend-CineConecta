@@ -235,3 +235,72 @@ func GetPublicMovieSentiment(c *gin.Context) {
 		"rating_text":    getPuntuacionTexto(score),
 	})
 }
+
+// GetPublicMovieCommentsByName obtiene todos los comentarios de una película por su nombre sin requerir autenticación
+func GetPublicMovieCommentsByName(c *gin.Context) {
+	movieName := c.Param("name")
+	if movieName == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de película inválido")
+		return
+	}
+
+	comments, err := services.GetCommentsByMovieName(movieName)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener comentarios")
+		return
+	}
+
+	// Añadir información enriquecida de sentimiento para cada comentario
+	// y limitar información del usuario a solo ID y nombre
+	var enhancedComments []gin.H
+	for _, comment := range comments {
+		enhancedComments = append(enhancedComments, gin.H{
+			"id":             comment.ID,
+			"user_id":        comment.UserID,
+			"movie_id":       comment.MovieID,
+			"content":        comment.Content,
+			"created_at":     comment.CreatedAt,
+			"sentiment":      comment.Sentiment,
+			"sentiment_text": getSentimentText(string(comment.Sentiment)),
+			"rating":         comment.SentimentScore,
+			"rating_text":    getPuntuacionTexto(comment.SentimentScore),
+			"user": gin.H{
+				"id":   comment.User.ID,
+				"name": comment.User.Name,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, enhancedComments)
+}
+
+// GetPublicMovieSentimentByName obtiene el sentimiento de una película por su nombre sin requerir autenticación
+func GetPublicMovieSentimentByName(c *gin.Context) {
+	movieName := c.Param("name")
+	if movieName == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de película inválido")
+		return
+	}
+
+	sentiment, score, err := services.GetMovieSentimentByName(movieName)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener sentimiento")
+		return
+	}
+
+	// Mapear el tipo de sentimiento a un texto descriptivo
+	sentimentText := "neutro"
+	if sentiment == "positive" {
+		sentimentText = "positivo"
+	} else if sentiment == "negative" {
+		sentimentText = "negativo"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"movie_name":     movieName,
+		"sentiment":      sentiment,
+		"sentiment_text": sentimentText,
+		"rating":         score,
+		"rating_text":    getPuntuacionTexto(score),
+	})
+}

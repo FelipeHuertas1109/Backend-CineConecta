@@ -28,3 +28,9 @@ type Comment struct {
 	User           userModels.User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Movie          movieModels.Movie `gorm:"foreignKey:MovieID" json:"movie,omitempty"`
 }
+
+// CommentRequest es el modelo para la solicitud de creación de comentarios usando nombre de película
+type CommentRequest struct {
+	MovieName string `json:"movie_name" binding:"required"`
+	Content   string `json:"content" binding:"required"`
+}
