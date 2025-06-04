@@ -39,18 +39,24 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	// Obtener userID del token, si quieres forzar que sólo usuarios logueados comenten
+	// Obtener userID del token
 	claims, exists := c.Get("claims")
 	if !exists {
 		fmt.Println("[DEBUG-CONTROLLER] No se encontraron claims en el contexto")
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Usuario no autenticado")
 		return
 	}
+	userID := claims.(*utils.Claims).UserID
+	fmt.Printf("[DEBUG-CONTROLLER] UserID obtenido del token: %d\n", userID)
 
-	input.UserID = claims.(*utils.Claims).UserID
-	fmt.Printf("[DEBUG-CONTROLLER] UserID obtenido del token: %d\n", input.UserID)
+	// Crear el comentario con el ID de la película
+	comment := &models.Comment{
+		UserID:  userID,
+		MovieID: input.MovieID,
+		Content: input.Content,
+	}
 
-	if err := services.CreateComment(&input); err != nil {
+	if err := services.CreateComment(comment); err != nil {
 		fmt.Printf("[DEBUG-CONTROLLER] Error al crear comentario: %v\n", err)
 		// Verificar si es el error específico de usuario que ya ha comentado
 		if strings.Contains(err.Error(), "ya ha comentado") {
@@ -69,12 +75,16 @@ func CreateComment(c *gin.Context) {
 	}
 
 	// Generar texto descriptivo para la puntuación
-	ratingText := getRatingDescription(input.SentimentScore)
-	fmt.Printf("[DEBUG-CONTROLLER] Comentario creado exitosamente: ID=%d, Score=%.2f\n", input.ID, input.SentimentScore)
+	ratingText := getRatingDescription(comment.SentimentScore)
+	fmt.Printf("[DEBUG-CONTROLLER] Comentario creado exitosamente: ID=%d, Score=%.2f\n", comment.ID, comment.SentimentScore)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Comentario creado correctamente",
-		"comment": input,
+		"comment": comment,
+		"movie": gin.H{
+			"id":    input.MovieID,
+			"title": movieTitle,
+		},
 		"sentiment_info": gin.H{
 			"rating":         comment.SentimentScore,
 			"description":    ratingText,

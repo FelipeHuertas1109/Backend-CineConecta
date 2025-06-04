@@ -16,6 +16,7 @@ const (
 	SentimentNegative SentimentType = "negative"
 )
 
+// Comment es el modelo principal para los comentarios en la base de datos
 type Comment struct {
 	ID             uint              `gorm:"primaryKey" json:"id"`
 	UserID         uint              `gorm:"uniqueIndex:idx_user_movie" json:"user_id"`
@@ -29,8 +30,8 @@ type Comment struct {
 	Movie          movieModels.Movie `gorm:"foreignKey:MovieID" json:"movie,omitempty"`
 }
 
-// CommentRequest es el modelo para la solicitud de creación de comentarios usando nombre de película
+// CommentRequest es el modelo para recibir solicitudes de creación de comentarios
 type CommentRequest struct {
-	MovieName string `json:"movie_name" binding:"required"`
-	Content   string `json:"content" binding:"required"`
+	MovieID uint   `json:"movie_id" binding:"required"`
+	Content string `json:"content" binding:"required"`
 }

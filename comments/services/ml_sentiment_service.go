@@ -81,7 +81,7 @@ func AnalyzeSentimentWithML(text string) (models.SentimentType, float64, error) 
 
 	fmt.Printf("[DEBUG-ML] Score obtenido: %.2f\n", scoreResp.Score)
 
-	// Convertir el score a un tipo de sentimiento
+	// Convertir el score a un tipo de sentimiento usando la función definida en sentiment_service.go
 	sentimentType := scoreToType(scoreResp.Score)
 	fmt.Printf("[DEBUG-ML] Tipo de sentimiento determinado: %s\n", sentimentType)
 

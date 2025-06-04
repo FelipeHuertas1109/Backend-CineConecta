@@ -133,6 +133,7 @@ func analyzeHeuristic(content string) (models.SentimentType, float64) {
 	return scoreToType(rating), rating
 }
 
+// scoreToType convierte un score a un tipo de sentimiento
 func scoreToType(r float64) models.SentimentType {
 	switch {
 	case r >= 4:
