@@ -23,6 +23,13 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		// Búsqueda avanzada
 		movies.GET("/search", middlewares.AuthRequired(), controllers.SearchMovies)
 
+		// Rutas para "me gusta"
+		movies.GET("/liked", middlewares.AuthRequired(), controllers.GetLikedMovies)
+		movies.GET("/:movieId/like", middlewares.AuthRequired(), controllers.CheckLikeStatus)
+		movies.POST("/:movieId/like", middlewares.AuthRequired(), controllers.LikeMovie)
+		movies.DELETE("/:movieId/like", middlewares.AuthRequired(), controllers.UnlikeMovie)
+		movies.GET("/:movieId/likes/count", middlewares.AuthRequired(), controllers.GetMovieLikes)
+
 		// Rutas para géneros
 		movies.GET("/genres", middlewares.AuthRequired(), controllers.GetAllGenres)
 		movies.GET("/genres/detailed", middlewares.AuthRequired(), controllers.GetGenreInfoList)

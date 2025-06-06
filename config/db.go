@@ -84,11 +84,15 @@ func ConnectDB() {
 		&authModels.User{},
 		&movieModels.Movie{},
 		&movieModels.Genre{},
+		&movieModels.Like{},
 		&commentModels.Comment{},
 		&commentModels.RecommendationDataset{})
 
 	// Crear índice único para asegurar que un usuario solo pueda comentar una vez por película
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_comments_user_movie ON comments (user_id, movie_id)")
+
+	// Crear índice único para asegurar que un usuario solo pueda dar me gusta una vez por película
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_likes_user_movie ON movie_likes (user_id, movie_id)")
 
 	// Migrar datos existentes de géneros
 	migrateGenres(db)

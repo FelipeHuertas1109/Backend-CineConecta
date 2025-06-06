@@ -72,6 +72,15 @@ PUT    /api/movies/:id            # (admin) Actualizar
 DELETE /api/movies/:id            # (admin) Eliminar
 ```
 
+### Me gusta (Likes)
+```
+GET    /api/movies/liked            # Obtener películas con "me gusta" del usuario actual
+GET    /api/movies/:id/like         # Verificar si el usuario actual dio "me gusta" a una película
+POST   /api/movies/:id/like         # Dar "me gusta" a una película
+DELETE /api/movies/:id/like         # Quitar "me gusta" de una película
+GET    /api/movies/:id/likes/count  # Obtener cantidad de "me gusta" de una película
+```
+
 ---
 
 ## ⚙️ Filtro dinámico en películas
