@@ -148,8 +148,9 @@ func GetProfile(c *gin.Context) {
 		return
 	}
 
-	// Devolver solo los campos necesarios
+	// Devolver solo los campos necesarios, incluyendo el ID
 	c.JSON(http.StatusOK, gin.H{
+		"id":    user.ID,
 		"name":  user.Name,
 		"email": user.Email,
 		"role":  user.Role,

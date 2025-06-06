@@ -83,11 +83,65 @@ func ConnectDB() {
 	db.AutoMigrate(
 		&authModels.User{},
 		&movieModels.Movie{},
+		&movieModels.Genre{},
 		&commentModels.Comment{},
 		&commentModels.RecommendationDataset{})
 
 	// Crear índice único para asegurar que un usuario solo pueda comentar una vez por película
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_comments_user_movie ON comments (user_id, movie_id)")
 
+	// Migrar datos existentes de géneros
+	migrateGenres(db)
+
 	DB = db
+}
+
+// migrateGenres migra los géneros existentes desde el campo Genre de las películas
+// a la nueva tabla de géneros y establece las relaciones
+func migrateGenres(db *gorm.DB) {
+	// Verificar si es necesaria la migración
+	var count int64
+	db.Model(&movieModels.Genre{}).Count(&count)
+
+	// Si ya hay géneros, no migrar
+	if count > 0 {
+		return
+	}
+
+	// Obtener todas las películas
+	var movies []movieModels.Movie
+	db.Find(&movies)
+
+	// Mapa para evitar duplicados
+	genresMap := make(map[string]*movieModels.Genre)
+
+	// Crear géneros únicos
+	for _, movie := range movies {
+		if movie.Genre != "" {
+			// Procesar géneros separados por comas
+			genres := movieModels.ParseGenresString(movie.Genre)
+			for _, genreName := range genres {
+				if _, exists := genresMap[genreName]; !exists {
+					genre := &movieModels.Genre{Name: genreName}
+					db.Create(genre)
+					genresMap[genreName] = genre
+				}
+			}
+		}
+	}
+
+	// Establecer relaciones entre películas y géneros
+	for _, movie := range movies {
+		if movie.Genre != "" {
+			genres := movieModels.ParseGenresString(movie.Genre)
+			for _, genreName := range genres {
+				if genre, exists := genresMap[genreName]; exists {
+					db.Exec(
+						"INSERT INTO movie_genres (movie_id, genre_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+						movie.ID, genre.ID,
+					)
+				}
+			}
+		}
+	}
 }

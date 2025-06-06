@@ -9,9 +9,10 @@ import (
 
 // SearchParams contiene los parámetros de búsqueda
 type SearchParams struct {
-	Title  string  `json:"title"`  // Búsqueda por título
-	Genre  string  `json:"genre"`  // Filtro por género
-	Rating float64 `json:"rating"` // Puntuación mínima
+	Title     string  `json:"title"`    // Búsqueda por título
+	GenreID   uint    `json:"genre_id"` // Filtro por ID de género
+	GenreName string  `json:"genre"`    // Filtro por nombre de género (para compatibilidad)
+	Rating    float64 `json:"rating"`   // Puntuación mínima
 }
 
 // GenreInfo contiene información sobre un género específico
@@ -32,15 +33,32 @@ func SearchMovies(params SearchParams) ([]models.Movie, error) {
 		query = query.Where("title ILIKE ?", "%"+params.Title+"%")
 	}
 
-	// Filtro por género
-	if params.Genre != "" {
-		query = query.Where("genre ILIKE ?", "%"+params.Genre+"%")
+	// Filtro por género (ID)
+	if params.GenreID > 0 {
+		query = query.Joins("JOIN movie_genres ON movies.id = movie_genres.movie_id").
+			Where("movie_genres.genre_id = ?", params.GenreID)
+	}
+
+	// Filtro por género (nombre) - para compatibilidad
+	if params.GenreName != "" {
+		// Primero intentamos buscar por la relación
+		var genre models.Genre
+		if err := config.DB.Where("name ILIKE ?", "%"+params.GenreName+"%").First(&genre).Error; err == nil {
+			query = query.Joins("JOIN movie_genres ON movies.id = movie_genres.movie_id").
+				Where("movie_genres.genre_id = ?", genre.ID)
+		} else {
+			// Si no existe el género, buscamos en el campo legacy
+			query = query.Where("genre ILIKE ?", "%"+params.GenreName+"%")
+		}
 	}
 
 	// Filtro por puntuación
 	if params.Rating > 0 {
 		query = query.Where("rating >= ?", params.Rating)
 	}
+
+	// Precargar los géneros
+	query = query.Preload("Genres")
 
 	// Ejecutar la consulta
 	if err := query.Find(&movies).Error; err != nil {
@@ -50,8 +68,8 @@ func SearchMovies(params SearchParams) ([]models.Movie, error) {
 	return movies, nil
 }
 
-// GetAllGenres obtiene todos los géneros disponibles con información adicional
-func GetAllGenres() ([]GenreInfo, error) {
+// GetAllGenresLegacy obtiene todos los géneros disponibles con información adicional (versión antigua)
+func GetAllGenresLegacy() ([]GenreInfo, error) {
 	var movies []models.Movie
 	if err := config.DB.Find(&movies).Error; err != nil {
 		return nil, err
@@ -103,15 +121,34 @@ func GetAllGenres() ([]GenreInfo, error) {
 
 // GetSimpleGenres obtiene solo los nombres de los géneros (mantiene compatibilidad)
 func GetSimpleGenres() ([]string, error) {
-	genresInfo, err := GetAllGenres()
+	genres, err := GetAllGenres()
 	if err != nil {
 		return nil, err
 	}
 
-	var genres []string
-	for _, info := range genresInfo {
-		genres = append(genres, info.Name)
+	var genreNames []string
+	for _, genre := range genres {
+		genreNames = append(genreNames, genre.Name)
 	}
 
-	return genres, nil
+	return genreNames, nil
+}
+
+// GetGenreInfoList obtiene la lista de géneros con información estadística
+func GetGenreInfoList() ([]GenreInfo, error) {
+	genres, err := GetAllGenres()
+	if err != nil {
+		return nil, err
+	}
+
+	var genreInfoList []GenreInfo
+	for _, genre := range genres {
+		stats, err := GetGenreStats(genre.ID)
+		if err != nil {
+			continue
+		}
+		genreInfoList = append(genreInfoList, *stats)
+	}
+
+	return genreInfoList, nil
 }

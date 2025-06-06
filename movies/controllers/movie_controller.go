@@ -10,15 +10,57 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Estructura para recibir los datos de creación/actualización de películas
+type MovieInput struct {
+	Title       string   `json:"title" binding:"required"`
+	Description string   `json:"description"`
+	Director    string   `json:"director"`
+	ReleaseDate string   `json:"release_date"`
+	Rating      float32  `json:"rating"`
+	PosterURL   string   `json:"poster_url"`
+	Genres      []string `json:"genres"` // Lista de nombres de géneros
+	Genre       string   `json:"genre"`  // Campo legacy para compatibilidad
+}
+
 // Método: POST /api/movies (restringido a admin)
 func CreateMovie(c *gin.Context) {
-	var movie models.Movie
-	if err := c.ShouldBindJSON(&movie); err != nil {
+	var input MovieInput
+	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
 		return
 	}
 
-	if err := services.CreateMovie(&movie); err != nil {
+	// Crear objeto película
+	var movie models.Movie
+	movie.Title = input.Title
+	movie.Description = input.Description
+	movie.Director = input.Director
+	movie.Rating = input.Rating
+	movie.PosterURL = input.PosterURL
+
+	// Procesar fecha de lanzamiento
+	if input.ReleaseDate != "" {
+		releaseDate, err := utils.ParseDate(input.ReleaseDate)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "Formato de fecha inválido")
+			return
+		}
+		movie.ReleaseDate = releaseDate
+	}
+
+	// Determinar los géneros a usar
+	var genreNames []string
+	if len(input.Genres) > 0 {
+		// Usar los géneros proporcionados en el array
+		genreNames = input.Genres
+	} else if input.Genre != "" {
+		// Compatibilidad con el campo legacy
+		genreNames = models.ParseGenresString(input.Genre)
+		movie.Genre = input.Genre // Mantener el campo legacy
+	}
+
+	// Crear película con géneros
+	if err := services.CreateMovieWithGenres(&movie, genreNames); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo crear la película")
 		return
 	}
@@ -62,9 +104,9 @@ func GetRecentMovies(c *gin.Context) {
 }
 
 // GetMovie devuelve una película por su ID.
-// Método: GET /api/movies/:id
+// Método: GET /api/movies/:movieId
 func GetMovie(c *gin.Context) {
-	idParam := c.Param("id")
+	idParam := c.Param("movieId")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "ID inválido")
@@ -80,37 +122,75 @@ func GetMovie(c *gin.Context) {
 }
 
 // UpdateMovie actualiza una película existente.
-// Método: PUT /api/movies/:id (restringido a admin)
+// Método: PUT /api/movies/:movieId (restringido a admin)
 func UpdateMovie(c *gin.Context) {
-	idParam := c.Param("id")
+	idParam := c.Param("movieId")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "ID inválido")
 		return
 	}
 
-	var movie models.Movie
-	if err := c.ShouldBindJSON(&movie); err != nil {
+	// Obtener la película existente
+	existingMovie, err := services.GetMovieByID(uint(id))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Película no encontrada")
+		return
+	}
+
+	// Recibir datos de actualización
+	var input MovieInput
+	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
 		return
 	}
-	movie.ID = uint(id)
 
-	if err := services.UpdateMovie(&movie); err != nil {
+	// Actualizar campos
+	existingMovie.Title = input.Title
+	existingMovie.Description = input.Description
+	existingMovie.Director = input.Director
+	existingMovie.Rating = input.Rating
+	if input.PosterURL != "" {
+		existingMovie.PosterURL = input.PosterURL
+	}
+
+	// Procesar fecha de lanzamiento
+	if input.ReleaseDate != "" {
+		releaseDate, err := utils.ParseDate(input.ReleaseDate)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "Formato de fecha inválido")
+			return
+		}
+		existingMovie.ReleaseDate = releaseDate
+	}
+
+	// Determinar los géneros a usar
+	var genreNames []string
+	if len(input.Genres) > 0 {
+		// Usar los géneros proporcionados en el array
+		genreNames = input.Genres
+	} else if input.Genre != "" {
+		// Compatibilidad con el campo legacy
+		genreNames = models.ParseGenresString(input.Genre)
+		existingMovie.Genre = input.Genre // Mantener el campo legacy
+	}
+
+	// Actualizar película con géneros
+	if err := services.UpdateMovieWithGenres(&existingMovie, genreNames); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "No se pudo actualizar la película")
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Película actualizada correctamente",
-		"movie":   movie,
+		"movie":   existingMovie,
 	})
 }
 
 // DeleteMovie elimina una película por su ID.
-// Método: DELETE /api/movies/:id (restringido a admin)
+// Método: DELETE /api/movies/:movieId (restringido a admin)
 func DeleteMovie(c *gin.Context) {
-	idParam := c.Param("id")
+	idParam := c.Param("movieId")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "ID inválido")
@@ -139,7 +219,7 @@ func GetMoviesSorted(c *gin.Context) {
 }
 
 func UploadPoster(c *gin.Context) {
-	idParam := c.Param("id")
+	idParam := c.Param("movieId")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "ID inválido")

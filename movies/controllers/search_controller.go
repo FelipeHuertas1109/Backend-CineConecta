@@ -15,7 +15,17 @@ func SearchMovies(c *gin.Context) {
 	// Obtener parámetros de búsqueda
 	title := c.Query("title")
 	genre := c.Query("genre")
+	genreIDStr := c.Query("genre_id")
 	ratingStr := c.Query("rating")
+
+	// Convertir genreID a uint
+	var genreID uint
+	if genreIDStr != "" {
+		id, err := strconv.ParseUint(genreIDStr, 10, 32)
+		if err == nil {
+			genreID = uint(id)
+		}
+	}
 
 	// Convertir rating a float64
 	var rating float64
@@ -30,9 +40,10 @@ func SearchMovies(c *gin.Context) {
 
 	// Crear parámetros de búsqueda
 	params := services.SearchParams{
-		Title:  title,
-		Genre:  genre,
-		Rating: rating,
+		Title:     title,
+		GenreID:   genreID,
+		GenreName: genre,
+		Rating:    rating,
 	}
 
 	// Realizar la búsqueda
@@ -66,7 +77,7 @@ func GetGenres(c *gin.Context) {
 // GetGenresDetailed devuelve todos los géneros con información detallada
 // GET /api/movies/genres/detailed
 func GetGenresDetailed(c *gin.Context) {
-	genres, err := services.GetAllGenres()
+	genres, err := services.GetGenreInfoList()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener información de géneros")
 		return
