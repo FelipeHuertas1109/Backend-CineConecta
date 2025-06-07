@@ -29,6 +29,7 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		movies.POST("/:movieId/like", middlewares.AuthRequired(), controllers.LikeMovie)
 		movies.DELETE("/:movieId/like", middlewares.AuthRequired(), controllers.UnlikeMovie)
 		movies.GET("/:movieId/likes/count", middlewares.AuthRequired(), controllers.GetMovieLikes)
+		movies.GET("/:movieId/like/diagnose", middlewares.AuthRequired(), controllers.DiagnoseLikesHandler)
 
 		// Rutas para géneros
 		movies.GET("/genres", middlewares.AuthRequired(), controllers.GetAllGenres)

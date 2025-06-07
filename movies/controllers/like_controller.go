@@ -146,3 +146,32 @@ func GetMovieLikes(c *gin.Context) {
 		"count": count,
 	})
 }
+
+// DiagnoseLikesHandler obtiene información de diagnóstico sobre los likes
+// GET /api/movies/:movieId/like/diagnose
+func DiagnoseLikesHandler(c *gin.Context) {
+	// Obtener ID de la película
+	movieID, err := strconv.ParseUint(c.Param("movieId"), 10, 32)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ID de película inválido")
+		return
+	}
+
+	// Obtener ID del usuario del token
+	claims, exists := c.Get("claims")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "No autorizado")
+		return
+	}
+	userClaims := claims.(*utils.Claims)
+	userID := userClaims.UserID
+
+	// Obtener diagnóstico
+	diagnosis, err := services.DiagnoseLikes(userID, uint(movieID))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al diagnosticar likes")
+		return
+	}
+
+	c.JSON(http.StatusOK, diagnosis)
+}
