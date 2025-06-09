@@ -3,6 +3,7 @@ package services
 import (
 	"cine_conecta_backend/config"
 	"cine_conecta_backend/movies/models"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -90,9 +91,17 @@ func RemoveGenreFromMovie(movieID uint, genreName string) error {
 // GetMoviesByGenre obtiene todas las películas de un género específico
 func GetMoviesByGenre(genreName string) ([]models.Movie, error) {
 	var movies []models.Movie
-	if err := config.DB.Where("genre LIKE ?", "%"+genreName+"%").Find(&movies).Error; err != nil {
+
+	fmt.Printf("[DEBUG-GENRE] Buscando películas con género: %s\n", genreName)
+
+	// Usar LOWER para hacer la búsqueda case-insensitive
+	if err := config.DB.Where("LOWER(genre) LIKE LOWER(?)", "%"+genreName+"%").Find(&movies).Error; err != nil {
+		fmt.Printf("[DEBUG-GENRE] Error al buscar películas por género: %v\n", err)
 		return nil, err
 	}
+
+	fmt.Printf("[DEBUG-GENRE] Encontradas %d películas con género %s\n", len(movies), genreName)
+
 	return movies, nil
 }
 
@@ -110,9 +119,12 @@ func UpdateMovieGenre(movieID uint, genreName string) error {
 
 // GetGenreStats obtiene estadísticas de un género
 func GetGenreStats(genreName string) (*GenreInfo, error) {
-	// Obtener películas con este género
+	fmt.Printf("[DEBUG-GENRE] Obteniendo estadísticas para el género: %s\n", genreName)
+
+	// Obtener películas con este género usando LOWER para búsqueda case-insensitive
 	var movies []models.Movie
-	if err := config.DB.Where("genre LIKE ?", "%"+genreName+"%").Find(&movies).Error; err != nil {
+	if err := config.DB.Where("LOWER(genre) LIKE LOWER(?)", "%"+genreName+"%").Find(&movies).Error; err != nil {
+		fmt.Printf("[DEBUG-GENRE] Error al obtener películas para estadísticas: %v\n", err)
 		return nil, err
 	}
 
@@ -129,6 +141,9 @@ func GetGenreStats(genreName string) (*GenreInfo, error) {
 		}
 		info.AvgRating = info.TotalRating / float64(info.Count)
 	}
+
+	fmt.Printf("[DEBUG-GENRE] Estadísticas para %s: %d películas, rating promedio %.2f\n",
+		genreName, info.Count, info.AvgRating)
 
 	return info, nil
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"cine_conecta_backend/config"
 	"cine_conecta_backend/movies/models"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -27,28 +28,35 @@ func SearchMovies(params SearchParams) ([]models.Movie, error) {
 	var movies []models.Movie
 	query := config.DB
 
+	fmt.Printf("[DEBUG-SEARCH] Iniciando búsqueda con parámetros: título=%s, género=%s, rating=%.1f\n",
+		params.Title, params.Genre, params.Rating)
+
 	// Filtro por título
 	if params.Title != "" {
-		query = query.Where("title ILIKE ?", "%"+params.Title+"%")
+		// Usar LOWER para hacer la búsqueda case-insensitive de manera más compatible
+		query = query.Where("LOWER(title) LIKE LOWER(?)", "%"+params.Title+"%")
+		fmt.Printf("[DEBUG-SEARCH] Aplicando filtro de título: LOWER(title) LIKE LOWER('%%%s%%')\n", params.Title)
 	}
 
 	// Filtro por género
 	if params.Genre != "" {
-		query = query.Where("genre ILIKE ?", "%"+params.Genre+"%")
+		query = query.Where("LOWER(genre) LIKE LOWER(?)", "%"+params.Genre+"%")
+		fmt.Printf("[DEBUG-SEARCH] Aplicando filtro de género: LOWER(genre) LIKE LOWER('%%%s%%')\n", params.Genre)
 	}
 
 	// Filtro por puntuación
 	if params.Rating > 0 {
 		query = query.Where("rating >= ?", params.Rating)
+		fmt.Printf("[DEBUG-SEARCH] Aplicando filtro de puntuación: rating >= %.1f\n", params.Rating)
 	}
 
-	// Precargar datos relacionados
-	query = query.Preload("Likes")
-
-	// Ejecutar la consulta
+	// Ejecutar la consulta sin precargar para evitar problemas
 	if err := query.Find(&movies).Error; err != nil {
+		fmt.Printf("[DEBUG-SEARCH] Error en la consulta: %v\n", err)
 		return nil, err
 	}
+
+	fmt.Printf("[DEBUG-SEARCH] Búsqueda completada. Encontradas %d películas.\n", len(movies))
 
 	return movies, nil
 }
