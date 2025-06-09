@@ -7,154 +7,124 @@ import (
 	"strings"
 )
 
-// CreateGenre crea un nuevo género si no existe
-func CreateGenre(name string) (*models.Genre, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, nil
-	}
-
-	var genre models.Genre
-	// Verificar si el género ya existe
-	result := config.DB.Where("name = ?", name).First(&genre)
-	if result.Error == nil {
-		// El género ya existe
-		return &genre, nil
-	}
-
-	// Crear nuevo género
-	genre = models.Genre{Name: name}
-	if err := config.DB.Create(&genre).Error; err != nil {
+// GetUniqueGenres obtiene todos los géneros únicos utilizados en las películas
+func GetUniqueGenres() ([]string, error) {
+	var movies []models.Movie
+	if err := config.DB.Find(&movies).Error; err != nil {
 		return nil, err
 	}
 
-	return &genre, nil
-}
+	// Usar un mapa para evitar duplicados
+	genresMap := make(map[string]bool)
 
-// GetAllGenres obtiene todos los géneros disponibles
-func GetAllGenres() ([]models.Genre, error) {
-	var genres []models.Genre
-	if err := config.DB.Find(&genres).Error; err != nil {
-		return nil, err
+	for _, movie := range movies {
+		if movie.Genre != "" {
+			// Algunos géneros pueden ser compuestos (ej: "Acción, Aventura")
+			genreParts := strings.Split(movie.Genre, ",")
+			for _, part := range genreParts {
+				genreTrimmed := strings.TrimSpace(part)
+				if genreTrimmed != "" {
+					genresMap[genreTrimmed] = true
+				}
+			}
+		}
+	}
+
+	// Convertir el mapa a slice
+	var genres []string
+	for genre := range genresMap {
+		genres = append(genres, genre)
 	}
 
 	// Ordenar géneros alfabéticamente
-	sort.Slice(genres, func(i, j int) bool {
-		return genres[i].Name < genres[j].Name
-	})
+	sort.Strings(genres)
 
 	return genres, nil
 }
 
-// GetGenreByID busca un género por su ID
-func GetGenreByID(id uint) (*models.Genre, error) {
-	var genre models.Genre
-	if err := config.DB.First(&genre, id).Error; err != nil {
-		return nil, err
-	}
-	return &genre, nil
+// GetAllGenres obtiene todos los géneros únicos (compatibilidad con código existente)
+func GetAllGenres() ([]string, error) {
+	return GetUniqueGenres()
 }
 
-// GetGenreByName busca un género por su nombre
-func GetGenreByName(name string) (*models.Genre, error) {
-	var genre models.Genre
-	if err := config.DB.Where("name = ?", name).First(&genre).Error; err != nil {
-		return nil, err
-	}
-	return &genre, nil
-}
-
-// GetGenresForMovie obtiene todos los géneros de una película
-func GetGenresForMovie(movieID uint) ([]models.Genre, error) {
+// GetGenreForMovie obtiene el género de una película
+func GetGenreForMovie(movieID uint) (string, error) {
 	var movie models.Movie
-	if err := config.DB.Preload("Genres").First(&movie, movieID).Error; err != nil {
-		return nil, err
+	if err := config.DB.First(&movie, movieID).Error; err != nil {
+		return "", err
 	}
-	return movie.Genres, nil
+	return movie.Genre, nil
 }
 
-// AddGenreToMovie añade un género a una película
-func AddGenreToMovie(movieID uint, genreID uint) error {
+// AddGenreToMovie asigna un género a una película
+func AddGenreToMovie(movieID uint, genreName string) error {
 	var movie models.Movie
-	var genre models.Genre
 
 	if err := config.DB.First(&movie, movieID).Error; err != nil {
 		return err
 	}
 
-	if err := config.DB.First(&genre, genreID).Error; err != nil {
+	// Asignar el género a la película
+	movie.Genre = genreName
+
+	return config.DB.Save(&movie).Error
+}
+
+// RemoveGenreFromMovie elimina el género de una película
+func RemoveGenreFromMovie(movieID uint, genreName string) error {
+	var movie models.Movie
+
+	if err := config.DB.First(&movie, movieID).Error; err != nil {
 		return err
 	}
 
-	// Verificar si la relación ya existe
-	var count int64
-	config.DB.Table("movie_genres").
-		Where("movie_id = ? AND genre_id = ?", movieID, genreID).
-		Count(&count)
-
-	if count == 0 {
-		return config.DB.Model(&movie).Association("Genres").Append(&genre)
+	// Verificar que el género actual sea el que queremos eliminar
+	if movie.Genre == genreName {
+		movie.Genre = ""
+		return config.DB.Save(&movie).Error
 	}
 
 	return nil
 }
 
-// RemoveGenreFromMovie elimina un género de una película
-func RemoveGenreFromMovie(movieID uint, genreID uint) error {
-	var movie models.Movie
-	var genre models.Genre
-
-	if err := config.DB.First(&movie, movieID).Error; err != nil {
-		return err
-	}
-
-	if err := config.DB.First(&genre, genreID).Error; err != nil {
-		return err
-	}
-
-	return config.DB.Model(&movie).Association("Genres").Delete(&genre)
-}
-
 // GetMoviesByGenre obtiene todas las películas de un género específico
-func GetMoviesByGenre(genreID uint) ([]models.Movie, error) {
-	var genre models.Genre
-	if err := config.DB.Preload("Movies").First(&genre, genreID).Error; err != nil {
+func GetMoviesByGenre(genreName string) ([]models.Movie, error) {
+	var movies []models.Movie
+	if err := config.DB.Where("genre LIKE ?", "%"+genreName+"%").Find(&movies).Error; err != nil {
 		return nil, err
 	}
-	return genre.Movies, nil
+	return movies, nil
 }
 
-// UpdateMovieGenres actualiza los géneros de una película
-func UpdateMovieGenres(movieID uint, genreIDs []uint) error {
+// UpdateMovieGenre actualiza el género de una película
+func UpdateMovieGenre(movieID uint, genreName string) error {
 	var movie models.Movie
 	if err := config.DB.First(&movie, movieID).Error; err != nil {
 		return err
 	}
 
-	var genres []models.Genre
-	if err := config.DB.Find(&genres, genreIDs).Error; err != nil {
-		return err
-	}
-
-	return config.DB.Model(&movie).Association("Genres").Replace(&genres)
+	// Actualizar el género
+	movie.Genre = genreName
+	return config.DB.Save(&movie).Error
 }
 
 // GetGenreStats obtiene estadísticas de un género
-func GetGenreStats(genreID uint) (*GenreInfo, error) {
-	var genre models.Genre
-	if err := config.DB.Preload("Movies").First(&genre, genreID).Error; err != nil {
+func GetGenreStats(genreName string) (*GenreInfo, error) {
+	// Obtener películas con este género
+	var movies []models.Movie
+	if err := config.DB.Where("genre LIKE ?", "%"+genreName+"%").Find(&movies).Error; err != nil {
 		return nil, err
 	}
 
 	info := &GenreInfo{
-		Name:        genre.Name,
-		Count:       len(genre.Movies),
+		Name:        genreName,
+		Count:       len(movies),
 		TotalRating: 0,
 		AvgRating:   0,
 	}
 
 	if info.Count > 0 {
-		for _, movie := range genre.Movies {
+		for _, movie := range movies {
 			info.TotalRating += float64(movie.Rating)
 		}
 		info.AvgRating = info.TotalRating / float64(info.Count)

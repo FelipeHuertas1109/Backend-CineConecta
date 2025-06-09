@@ -34,15 +34,14 @@ func RegisterMovieRoutes(r *gin.Engine) {
 		// Rutas para géneros
 		movies.GET("/genres", middlewares.AuthRequired(), controllers.GetAllGenres)
 		movies.GET("/genres/detailed", middlewares.AuthRequired(), controllers.GetGenreInfoList)
-		movies.GET("/genres/:id", middlewares.AuthRequired(), controllers.GetGenreByID)
-		movies.GET("/genres/:id/stats", middlewares.AuthRequired(), controllers.GetGenreStats)
-		movies.POST("/genres", middlewares.AdminRequired(), controllers.CreateGenre)
+		movies.GET("/genres/:name", middlewares.AuthRequired(), controllers.GetGenreByName)
+		movies.GET("/genres/:name/stats", middlewares.AuthRequired(), controllers.GetGenreStats)
 
 		// Rutas para géneros de películas específicas
 		movies.GET("/:movieId/genres", middlewares.AuthRequired(), controllers.GetMovieGenres)
 		movies.POST("/:movieId/genres", middlewares.AdminRequired(), controllers.AddGenreToMovie)
-		movies.PUT("/:movieId/genres", middlewares.AdminRequired(), controllers.UpdateMovieGenres)
-		movies.DELETE("/:movieId/genres/:genreId", middlewares.AdminRequired(), controllers.RemoveGenreFromMovie)
+		movies.PUT("/:movieId/genres", middlewares.AdminRequired(), controllers.UpdateMovieGenre)
+		movies.DELETE("/:movieId/genres/:genre", middlewares.AdminRequired(), controllers.RemoveGenreFromMovie)
 
 		// Rutas restringidas a admin
 		movies.POST("/", middlewares.AdminRequired(), controllers.CreateMovie)

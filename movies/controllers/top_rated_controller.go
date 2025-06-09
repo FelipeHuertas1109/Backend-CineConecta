@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"cine_conecta_backend/movies/services"
+	movieServices "cine_conecta_backend/movies/services"
 	"net/http"
 	"strconv"
 
@@ -11,7 +11,7 @@ import (
 // GetTopRatedMovies devuelve las 5 películas mejor valoradas según los comentarios
 func GetTopRatedMovies(c *gin.Context) {
 	// Obtener películas mejor valoradas
-	movies, err := services.GetTopRatedMovies()
+	movies, err := movieServices.GetTopRatedMovies()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -48,7 +48,7 @@ func GetMovieWithAverageScore(c *gin.Context) {
 	}
 
 	// Obtener película con puntuación media
-	movie, err := services.GetMovieWithAverageScore(uint(movieID))
+	movie, err := movieServices.GetMovieWithAverageScore(uint(movieID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

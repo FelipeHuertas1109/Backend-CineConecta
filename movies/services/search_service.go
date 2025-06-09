@@ -9,10 +9,9 @@ import (
 
 // SearchParams contiene los parámetros de búsqueda
 type SearchParams struct {
-	Title     string  `json:"title"`    // Búsqueda por título
-	GenreID   uint    `json:"genre_id"` // Filtro por ID de género
-	GenreName string  `json:"genre"`    // Filtro por nombre de género (para compatibilidad)
-	Rating    float64 `json:"rating"`   // Puntuación mínima
+	Title  string  `json:"title"`  // Búsqueda por título
+	Genre  string  `json:"genre"`  // Filtro por nombre de género
+	Rating float64 `json:"rating"` // Puntuación mínima
 }
 
 // GenreInfo contiene información sobre un género específico
@@ -33,23 +32,9 @@ func SearchMovies(params SearchParams) ([]models.Movie, error) {
 		query = query.Where("title ILIKE ?", "%"+params.Title+"%")
 	}
 
-	// Filtro por género (ID)
-	if params.GenreID > 0 {
-		query = query.Joins("JOIN movie_genres ON movies.id = movie_genres.movie_id").
-			Where("movie_genres.genre_id = ?", params.GenreID)
-	}
-
-	// Filtro por género (nombre) - para compatibilidad
-	if params.GenreName != "" {
-		// Primero intentamos buscar por la relación
-		var genre models.Genre
-		if err := config.DB.Where("name ILIKE ?", "%"+params.GenreName+"%").First(&genre).Error; err == nil {
-			query = query.Joins("JOIN movie_genres ON movies.id = movie_genres.movie_id").
-				Where("movie_genres.genre_id = ?", genre.ID)
-		} else {
-			// Si no existe el género, buscamos en el campo legacy
-			query = query.Where("genre ILIKE ?", "%"+params.GenreName+"%")
-		}
+	// Filtro por género
+	if params.Genre != "" {
+		query = query.Where("genre ILIKE ?", "%"+params.Genre+"%")
 	}
 
 	// Filtro por puntuación
@@ -57,8 +42,8 @@ func SearchMovies(params SearchParams) ([]models.Movie, error) {
 		query = query.Where("rating >= ?", params.Rating)
 	}
 
-	// Precargar los géneros
-	query = query.Preload("Genres")
+	// Precargar datos relacionados
+	query = query.Preload("Likes")
 
 	// Ejecutar la consulta
 	if err := query.Find(&movies).Error; err != nil {
@@ -121,29 +106,19 @@ func GetAllGenresLegacy() ([]GenreInfo, error) {
 
 // GetSimpleGenres obtiene solo los nombres de los géneros (mantiene compatibilidad)
 func GetSimpleGenres() ([]string, error) {
-	genres, err := GetAllGenres()
-	if err != nil {
-		return nil, err
-	}
-
-	var genreNames []string
-	for _, genre := range genres {
-		genreNames = append(genreNames, genre.Name)
-	}
-
-	return genreNames, nil
+	return GetUniqueGenres()
 }
 
 // GetGenreInfoList obtiene la lista de géneros con información estadística
 func GetGenreInfoList() ([]GenreInfo, error) {
-	genres, err := GetAllGenres()
+	genres, err := GetUniqueGenres()
 	if err != nil {
 		return nil, err
 	}
 
 	var genreInfoList []GenreInfo
-	for _, genre := range genres {
-		stats, err := GetGenreStats(genre.ID)
+	for _, genreName := range genres {
+		stats, err := GetGenreStats(genreName)
 		if err != nil {
 			continue
 		}

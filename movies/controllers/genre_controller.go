@@ -12,58 +12,49 @@ import (
 // GetAllGenres obtiene todos los géneros
 // GET /api/movies/genres
 func GetAllGenres(c *gin.Context) {
-	genres, err := services.GetAllGenres()
+	genres, err := services.GetUniqueGenres()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener géneros")
 		return
 	}
 
+	// Construir la respuesta con formato
+	var formattedGenres []gin.H
+	for _, genreName := range genres {
+		formattedGenres = append(formattedGenres, gin.H{
+			"name": genreName,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"genres": genres,
+		"genres": formattedGenres,
 		"count":  len(genres),
 	})
 }
 
-// GetGenreByID obtiene un género por su ID
-// GET /api/movies/genres/:id
-func GetGenreByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID de género inválido")
+// GetGenreByName obtiene un género por su nombre
+// GET /api/movies/genres/:name
+func GetGenreByName(c *gin.Context) {
+	name := c.Param("name")
+	if name == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de género no proporcionado")
 		return
 	}
 
-	genre, err := services.GetGenreByID(uint(id))
+	// Obtener estadísticas del género
+	stats, err := services.GetGenreStats(name)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Género no encontrado")
 		return
 	}
 
-	c.JSON(http.StatusOK, genre)
+	c.JSON(http.StatusOK, gin.H{
+		"name":  name,
+		"stats": stats,
+	})
 }
 
-// CreateGenre crea un nuevo género
-// POST /api/movies/genres
-func CreateGenre(c *gin.Context) {
-	var input struct {
-		Name string `json:"name" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Datos inválidos")
-		return
-	}
-
-	genre, err := services.CreateGenre(input.Name)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al crear género")
-		return
-	}
-
-	c.JSON(http.StatusCreated, genre)
-}
-
-// GetMovieGenres obtiene los géneros de una película
+// GetMovieGenres obtiene el género de una película
 // GET /api/movies/:movieId/genres
 func GetMovieGenres(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("movieId"), 10, 32)
@@ -72,15 +63,25 @@ func GetMovieGenres(c *gin.Context) {
 		return
 	}
 
-	genres, err := services.GetGenresForMovie(uint(id))
+	genre, err := services.GetGenreForMovie(uint(id))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Película no encontrada")
 		return
 	}
 
+	// Si la película no tiene género, devolver un array vacío
+	if genre == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"genres": []gin.H{},
+			"count":  0,
+		})
+		return
+	}
+
+	// Devolver el género en un array para mantener compatibilidad con el frontend
 	c.JSON(http.StatusOK, gin.H{
-		"genres": genres,
-		"count":  len(genres),
+		"genres": []gin.H{{"name": genre}},
+		"count":  1,
 	})
 }
 
@@ -94,7 +95,7 @@ func AddGenreToMovie(c *gin.Context) {
 	}
 
 	var input struct {
-		GenreID uint `json:"genre_id" binding:"required"`
+		Genre string `json:"genre" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -102,7 +103,7 @@ func AddGenreToMovie(c *gin.Context) {
 		return
 	}
 
-	if err := services.AddGenreToMovie(uint(movieID), input.GenreID); err != nil {
+	if err := services.AddGenreToMovie(uint(movieID), input.Genre); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al añadir género a la película")
 		return
 	}
@@ -111,7 +112,7 @@ func AddGenreToMovie(c *gin.Context) {
 }
 
 // RemoveGenreFromMovie elimina un género de una película
-// DELETE /api/movies/:movieId/genres/:genreId
+// DELETE /api/movies/:movieId/genres/:genre
 func RemoveGenreFromMovie(c *gin.Context) {
 	movieID, err := strconv.ParseUint(c.Param("movieId"), 10, 32)
 	if err != nil {
@@ -119,13 +120,13 @@ func RemoveGenreFromMovie(c *gin.Context) {
 		return
 	}
 
-	genreID, err := strconv.ParseUint(c.Param("genreId"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID de género inválido")
+	genre := c.Param("genre")
+	if genre == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Género no proporcionado")
 		return
 	}
 
-	if err := services.RemoveGenreFromMovie(uint(movieID), uint(genreID)); err != nil {
+	if err := services.RemoveGenreFromMovie(uint(movieID), genre); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al eliminar género de la película")
 		return
 	}
@@ -133,9 +134,9 @@ func RemoveGenreFromMovie(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// UpdateMovieGenres actualiza todos los géneros de una película
+// UpdateMovieGenre actualiza el género de una película
 // PUT /api/movies/:movieId/genres
-func UpdateMovieGenres(c *gin.Context) {
+func UpdateMovieGenre(c *gin.Context) {
 	movieID, err := strconv.ParseUint(c.Param("movieId"), 10, 32)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "ID de película inválido")
@@ -143,7 +144,7 @@ func UpdateMovieGenres(c *gin.Context) {
 	}
 
 	var input struct {
-		GenreIDs []uint `json:"genre_ids" binding:"required"`
+		Genre string `json:"genre" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -151,8 +152,8 @@ func UpdateMovieGenres(c *gin.Context) {
 		return
 	}
 
-	if err := services.UpdateMovieGenres(uint(movieID), input.GenreIDs); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al actualizar géneros de la película")
+	if err := services.UpdateMovieGenre(uint(movieID), input.Genre); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al actualizar género de la película")
 		return
 	}
 
@@ -160,15 +161,15 @@ func UpdateMovieGenres(c *gin.Context) {
 }
 
 // GetGenreStats obtiene estadísticas de un género
-// GET /api/movies/genres/:id/stats
+// GET /api/movies/genres/:name/stats
 func GetGenreStats(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "ID de género inválido")
+	name := c.Param("name")
+	if name == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Nombre de género no proporcionado")
 		return
 	}
 
-	stats, err := services.GetGenreStats(uint(id))
+	stats, err := services.GetGenreStats(name)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Género no encontrado")
 		return
@@ -180,10 +181,19 @@ func GetGenreStats(c *gin.Context) {
 // GetGenreInfoList obtiene lista de géneros con estadísticas
 // GET /api/movies/genres/stats
 func GetGenreInfoList(c *gin.Context) {
-	stats, err := services.GetGenreInfoList()
+	genres, err := services.GetUniqueGenres()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener estadísticas de géneros")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al obtener géneros")
 		return
+	}
+
+	var stats []services.GenreInfo
+	for _, genreName := range genres {
+		genreStats, err := services.GetGenreStats(genreName)
+		if err != nil {
+			continue
+		}
+		stats = append(stats, *genreStats)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

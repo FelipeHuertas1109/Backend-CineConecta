@@ -8,6 +8,72 @@ import (
 	"fmt"
 )
 
+// UpdateMovieRating actualiza el rating de una película basado en los comentarios
+// Esta función se mantiene por compatibilidad pero ya no es necesario llamarla
+// directamente ya que los ratings se actualizan automáticamente al consultar las películas
+func UpdateMovieRating(movieID uint) error {
+	fmt.Printf("[DEBUG-SERVICE] Actualizando rating de la película ID=%d\n", movieID)
+
+	// Verificar si la película existe
+	var movie movieModels.Movie
+	if err := config.DB.First(&movie, movieID).Error; err != nil {
+		return fmt.Errorf("película no encontrada: %w", err)
+	}
+
+	// Obtener todos los comentarios de la película
+	var comments []models.Comment
+	if err := config.DB.Where("movie_id = ?", movieID).Find(&comments).Error; err != nil {
+		return fmt.Errorf("error al obtener comentarios: %w", err)
+	}
+
+	// Calcular el nuevo rating basado en el promedio de las puntuaciones de sentimientos
+	var newRating float32
+	if len(comments) > 0 {
+		var totalScore float64
+		for _, comment := range comments {
+			totalScore += comment.SentimentScore
+		}
+		newRating = float32(totalScore / float64(len(comments)))
+		fmt.Printf("[DEBUG-SERVICE] Nuevo rating calculado para película %d: %.2f (basado en %d comentarios)\n",
+			movieID, newRating, len(comments))
+	} else {
+		// Si no hay comentarios, dejar el rating en 0 o algún valor predeterminado
+		newRating = 0
+		fmt.Printf("[DEBUG-SERVICE] No hay comentarios para la película %d, rating establecido a 0\n", movieID)
+	}
+
+	// Actualizar el rating de la película
+	movie.Rating = newRating
+	if err := config.DB.Save(&movie).Error; err != nil {
+		return fmt.Errorf("error al actualizar rating: %w", err)
+	}
+
+	fmt.Printf("[DEBUG-SERVICE] Rating de película %d actualizado exitosamente a %.2f\n", movieID, newRating)
+	return nil
+}
+
+// updateAllMoviesRatings actualiza los ratings de todas las películas
+func updateAllMoviesRatings() error {
+	// Obtener todas las películas
+	var movies []movieModels.Movie
+	if err := config.DB.Find(&movies).Error; err != nil {
+		return fmt.Errorf("error al obtener películas: %w", err)
+	}
+
+	fmt.Printf("[DEBUG-SERVICE] Actualizando ratings para %d películas\n", len(movies))
+
+	// Actualizar el rating de cada película
+	for _, movie := range movies {
+		if err := UpdateMovieRating(movie.ID); err != nil {
+			fmt.Printf("[DEBUG-SERVICE] Error al actualizar rating de película %d: %v\n", movie.ID, err)
+			// Continuamos con la siguiente película en caso de error
+			continue
+		}
+	}
+
+	return nil
+}
+
 func CreateComment(c *models.Comment) error {
 	fmt.Printf("[DEBUG-SERVICE] Creando comentario: UserID=%d, MovieID=%d, Content=%s\n", c.UserID, c.MovieID, c.Content)
 
@@ -42,6 +108,7 @@ func CreateComment(c *models.Comment) error {
 	}
 
 	fmt.Printf("[DEBUG-SERVICE] Comentario guardado exitosamente con ID: %d\n", c.ID)
+
 	return nil
 }
 
@@ -71,11 +138,27 @@ func UpdateComment(c *models.Comment) error {
 	c.Sentiment = sentiment
 	c.SentimentScore = score
 
-	return config.DB.Save(c).Error
+	err = config.DB.Save(c).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DeleteComment(id uint) error {
-	return config.DB.Delete(&models.Comment{}, id).Error
+	// Obtener el comentario primero para conocer la película asociada
+	var comment models.Comment
+	if err := config.DB.First(&comment, id).Error; err != nil {
+		return err
+	}
+
+	// Eliminar el comentario
+	if err := config.DB.Delete(&models.Comment{}, id).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetCommentsByMovie obtiene todos los comentarios de una película
@@ -190,5 +273,10 @@ func UpdateAllCommentSentiments() error {
 // DeleteAllComments elimina todos los comentarios de la base de datos
 func DeleteAllComments() error {
 	// Usar eliminación en masa para mayor eficiencia
-	return config.DB.Exec("DELETE FROM comments").Error
+	err := config.DB.Exec("DELETE FROM comments").Error
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

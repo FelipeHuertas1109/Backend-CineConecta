@@ -213,7 +213,7 @@ func getFavoriteGenres(userID uint) ([]string, error) {
 
 	// Obtener géneros de estas películas
 	var movies []movieModels.Movie
-	if err := config.DB.Where("id IN ?", positiveCommentMovieIDs).
+	if err := config.DB.Preload("Genre").Where("id IN ?", positiveCommentMovieIDs).
 		Find(&movies).Error; err != nil {
 		return favoriteGenres, err
 	}
@@ -221,7 +221,15 @@ func getFavoriteGenres(userID uint) ([]string, error) {
 	// Contar frecuencia de géneros
 	genreFrequency := make(map[string]int)
 	for _, movie := range movies {
-		genreFrequency[movie.Genre]++
+		if movie.Genre != "" {
+			genreParts := strings.Split(movie.Genre, ",")
+			for _, part := range genreParts {
+				genreTrimmed := strings.TrimSpace(part)
+				if genreTrimmed != "" {
+					genreFrequency[genreTrimmed]++
+				}
+			}
+		}
 	}
 
 	// Ordenar géneros por frecuencia (de mayor a menor)
@@ -256,16 +264,28 @@ func getFavoriteGenres(userID uint) ([]string, error) {
 func getPopularMoviesByGenres(genres []string) ([]movieModels.Movie, error) {
 	var movies []movieModels.Movie
 
-	// Si no hay géneros específicos, devolver películas populares en general
+	// Si no hay géneros, devolver lista vacía
 	if len(genres) == 0 {
-		return getTopRatedMovies(10, nil)
+		return movies, nil
 	}
 
-	// Buscar películas de estos géneros
-	if err := config.DB.Where("genre IN ?", genres).
-		Order("rating DESC").
-		Limit(10).
-		Find(&movies).Error; err != nil {
+	// Construir condiciones para la consulta
+	var conditions []string
+	var values []interface{}
+
+	for _, genreName := range genres {
+		conditions = append(conditions, "genre ILIKE ?")
+		values = append(values, "%"+genreName+"%")
+	}
+
+	// Obtener películas con los géneros especificados y rating alto
+	query := config.DB.Order("rating DESC")
+
+	if len(conditions) > 0 {
+		query = query.Where(strings.Join(conditions, " OR "), values...)
+	}
+
+	if err := query.Limit(10).Find(&movies).Error; err != nil {
 		return nil, err
 	}
 

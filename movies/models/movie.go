@@ -14,17 +14,17 @@ type Movie struct {
 	Rating      float32   `json:"rating"`
 	PosterURL   string    `json:"poster_url"`
 
+	// Campo para el género como texto (para facilidad de uso)
+	Genre string `json:"genre" gorm:"column:genre"`
+
 	// Relación muchos a muchos con géneros
 	Genres []Genre `gorm:"many2many:movie_genres;" json:"genres"`
-
-	// Campo para compatibilidad con código existente (será eliminado después)
-	Genre string `json:"-" gorm:"->"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// ParseGenresString convierte una cadena de géneros separados por comas en una lista de nombres de géneros
+// ParseGenresString convierte una cadena de géneros en una lista de nombres de géneros
 func ParseGenresString(genreStr string) []string {
 	if genreStr == "" {
 		return []string{}
