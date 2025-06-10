@@ -275,3 +275,15 @@ func GetMoviesSorted(sortBy string, order string) ([]models.Movie, error) {
 
 	return movies, nil
 }
+
+// UpdateMovieRating actualiza el rating de una película basado en los comentarios
+// Esta función puede ser llamada desde otros paquetes para actualizar el rating
+func UpdateMovieRating(movieID uint) error {
+	// Obtener la película primero
+	var movie models.Movie
+	if err := config.DB.First(&movie, movieID).Error; err != nil {
+		return err
+	}
+
+	return updateMovieRating(&movie)
+}

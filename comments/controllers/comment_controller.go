@@ -311,3 +311,24 @@ func CheckMovieExists(c *gin.Context) {
 		"movie":   movie,
 	})
 }
+
+// POST /api/comments/update-ratings (AdminRequired)
+func UpdateAllMovieRatings(c *gin.Context) {
+	// Verificación adicional de seguridad
+	claims, _ := c.Get("claims")
+	if claims.(*utils.Claims).Role != "admin" {
+		utils.ErrorResponse(c, http.StatusForbidden, "Solo administradores pueden ejecutar esta acción")
+		return
+	}
+
+	err := services.UpdateAllMoviesRatings()
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Error al actualizar ratings de películas: "+err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Ratings de películas actualizados correctamente",
+		"time":    time.Now().Format(time.RFC3339),
+	})
+}

@@ -15,7 +15,7 @@ type MovieWithAverageScore struct {
 
 // GetTopRatedMovies obtiene las 5 películas mejor valoradas según la puntuación media de comentarios
 func GetTopRatedMovies() ([]MovieWithAverageScore, error) {
-	// Consulta SQL para obtener películas con su puntuación media de comentarios
+	// Consulta SQL para obtener películas con su puntuación media de comentarios muy
 	// ordenadas por puntuación media descendente y limitadas a 5
 	query := `
 		SELECT 
